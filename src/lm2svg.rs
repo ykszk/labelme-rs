@@ -2,6 +2,8 @@ use clap::Parser;
 use image::GenericImageView;
 use std::path::Path;
 use svg::node::element::{self, Circle};
+#[macro_use]
+extern crate log;
 
 /// Load and print labelme annotations
 #[derive(Parser, Debug)]
@@ -15,8 +17,11 @@ struct Args {
     #[clap(short, long)]
     config: Option<String>,
     /// Circle radius
-    #[clap(short, long, default_value = "2")]
+    #[clap(long, default_value = "2")]
     radius: usize,
+    /// Resize image. Specify in imagemagick's -resize-like format
+    #[clap(long)]
+    resize: Option<String>,
 }
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
@@ -51,8 +56,9 @@ impl ColorCycler {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let args = Args::parse();
-    let json_data = labelme_rs::LabelMeData::load(&args.input)?;
+    let mut json_data = labelme_rs::LabelMeData::load(&args.input)?;
     let label_colors = match args.config {
         Some(config) => {
             let config: serde_yaml::Value =
@@ -68,7 +74,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parent()
         .unwrap_or_else(|| Path::new("."))
         .join(&json_data.imagePath);
-    let img = image::open(&img_filename)?;
+    let mut img = image::open(&img_filename)?;
+    if let Some(resize) = args.resize {
+        let orig_size = img.dimensions();
+        let re = regex::Regex::new(r"^(\d+)%$")?;
+        if let Some(cap) = re.captures(&resize) {
+            let p: f64 = cap.get(1).unwrap().as_str().parse::<u8>()? as f64 / 100.0;
+            img = img.thumbnail(
+                (p * img.dimensions().0 as f64) as u32,
+                (p * img.dimensions().1 as f64) as u32,
+            );
+            info!("Resized to {} x {}", img.dimensions().0, img.dimensions().1);
+        } else {
+            let re = regex::Regex::new(r"^(\d+)x(\d+)$")?;
+            if let Some(cap) = re.captures(&resize) {
+                let w: u32 = cap.get(1).unwrap().as_str().parse()?;
+                let h: u32 = cap.get(2).unwrap().as_str().parse()?;
+                img = img.thumbnail(w, h);
+                info!("Resized to {} x {}", img.dimensions().0, img.dimensions().1);
+            } else {
+                return Err(format!("{} is invalid resize argument", resize).into());
+            }
+        };
+        let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
+        if scale != 1.0 {
+            info!("Points are scaled by {}", scale);
+            for shape in json_data.shapes.iter_mut() {
+                for p in shape.points.iter_mut() {
+                    p.0 = (scale * p.0 as f64) as f32;
+                    p.1 = (scale * p.1 as f64) as f32;
+                }
+            }
+        }
+    }
     let (image_width, image_height) = img.dimensions();
 
     let b64 = labelme_rs::img2base64(&img, image::ImageOutputFormat::Jpeg(75));
