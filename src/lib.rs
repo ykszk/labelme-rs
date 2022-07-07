@@ -108,7 +108,7 @@ impl LabelMeData {
         Path::new(json_path)
             .parent()
             .unwrap_or_else(|| Path::new("."))
-            .join(&self.imagePath)
+            .join(&self.imagePath.replace("\\", "/")).canonicalize().unwrap()
     }
 
     pub fn to_svg(
