@@ -40,18 +40,21 @@ struct Args {
     /// Line width
     #[clap(long, default_value = "2")]
     line_width: usize,
-    /// Resize image. Specify in imagemagick's -resize-like format
+    /// Resize image. Specify in imagemagick's `-resize`-like format
     #[clap(long)]
     resize: Option<String>,
     /// HTML title
     #[clap(long, default_value = "catalog")]
     title: String,
+    /// CSS filename
+    #[clap(long)]
+    css: Option<String>,
 }
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
     let args = Args::parse();
     let entries: Vec<_> = glob::glob(args.input.join("*.json").to_str().unwrap())
@@ -148,10 +151,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .join("\n");
     let mut writer = std::io::BufWriter::new(std::fs::File::create(args.output)?);
     let mut context = tera::Context::new();
+    let style = if let Some(css) = args.css {
+        std::fs::read_to_string(css)?
+    } else {
+        include_str!("templates/default.css").into()
+    };
     context.insert("title", &args.title);
     context.insert("legend", &legend);
     context.insert("tag_checkboxes", &tag_cbs);
     context.insert("main", &svgs.join("\n"));
+    context.insert("style", &style);
     let html = TEMPLATES.render("catalog.html", &context)?;
     writer.write_all(html.as_bytes()).unwrap();
     Ok(())

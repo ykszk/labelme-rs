@@ -20,7 +20,7 @@ struct Args {
     /// Line width
     #[clap(long, default_value = "2")]
     line_width: usize,
-    /// Resize image. Specify in imagemagick's -resize-like format
+    /// Resize image. Specify in imagemagick's `-resize`-like format
     #[clap(long)]
     resize: Option<String>,
 }
