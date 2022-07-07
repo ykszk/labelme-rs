@@ -8,3 +8,6 @@ Can be useful when combined with labelme's --output option.
 
 ## lm2svg
 Create SVG image from labeme annotation.
+
+## lms2html
+Create HTML with svgs from labelme directory.

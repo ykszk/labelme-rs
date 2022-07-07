@@ -9,6 +9,10 @@ name = "lm2svg"
 path = "src/lm2svg.rs"
 
 [[bin]]
+name = "lms2html"
+path = "src/lms2html.rs"
+
+[[bin]]
 name = "lm_swap_prefix"
 path = "src/swap_prefix.rs"
 
@@ -25,3 +29,6 @@ svg = "0"
 glob = "0"
 indicatif = "0.16"
 regex = "1"
+tera = { version = "1", default-features = false }
+lazy_static = "1"
+indexmap = { version="1", features = ["serde"] }

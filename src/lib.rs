@@ -1,4 +1,5 @@
 use image::GenericImageView;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -112,7 +113,7 @@ impl LabelMeData {
 
     pub fn to_svg(
         self,
-        label_colors: LabelColorsHex,
+        label_colors: &LabelColorsHex,
         point_radius: usize,
         line_width: usize,
         img: &image::DynamicImage,
@@ -228,8 +229,8 @@ impl Color {
     }
 }
 
-pub type LabelColors = std::collections::HashMap<String, Color>;
-pub type LabelColorsHex = std::collections::HashMap<String, String>;
+pub type LabelColors = IndexMap<String, Color>;
+pub type LabelColorsHex = IndexMap<String, String>;
 
 pub static COLORS: [&str; 6] = ["red", "green", "blue", "cyan", "magenta", "yellow"];
 pub struct ColorCycler {

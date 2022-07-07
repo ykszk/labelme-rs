@@ -3,7 +3,7 @@ use image::GenericImageView;
 #[macro_use]
 extern crate log;
 
-/// Load and print labelme annotations
+/// Create SVG image from a labeme annotation
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             json_data.scale(scale);
         }
     }
-    let document = json_data.to_svg(label_colors, args.radius, args.line_width, &img)?;
+    let document = json_data.to_svg(&label_colors, args.radius, args.line_width, &img)?;
     svg::save(args.output, &document)?;
     Ok(())
 }
