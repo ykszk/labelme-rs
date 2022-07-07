@@ -30,5 +30,4 @@ glob = "0"
 indicatif = "0.16"
 regex = "1"
 tera = { version = "1", default-features = false }
-lazy_static = "1"
 indexmap = { version="1", features = ["serde"] }

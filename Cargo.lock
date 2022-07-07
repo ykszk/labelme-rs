@@ -378,7 +378,6 @@ dependencies = [
  "image",
  "indexmap",
  "indicatif",
- "lazy_static",
  "log",
  "regex",
  "serde",

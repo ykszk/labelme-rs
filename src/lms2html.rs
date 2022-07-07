@@ -4,24 +4,6 @@ use indexmap::IndexSet;
 use std::{io::Write, path::PathBuf};
 #[macro_use]
 extern crate log;
-use tera::Tera;
-#[macro_use]
-extern crate lazy_static;
-
-lazy_static! {
-    pub static ref TEMPLATES: Tera = {
-        let mut tera = match Tera::new("src/templates/*.html") {
-            Ok(t) => t,
-            Err(e) => {
-                println!("Parsing error(s): {}", e);
-                ::std::process::exit(1);
-            }
-        };
-        tera.autoescape_on(vec![]);
-        // tera.register_filter("do_nothing", do_nothing_filter);
-        tera
-    };
-}
 
 /// Create HTML from labelme directory
 #[derive(Parser, Debug)]
@@ -54,9 +36,20 @@ struct Args {
 use labelme_rs::{load_label_colors, LabelColorsHex};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
 
     let args = Args::parse();
+    let mut templates = tera::Tera::new("/dev/null/*")?;
+    templates.autoescape_on(vec![]);
+    templates.add_raw_templates(vec![
+        ("catalog.html", include_str!("templates/catalog.html")),
+        ("img.html", include_str!("templates/img.html")),
+        ("legend.html", include_str!("templates/legend.html")),
+        (
+            "tag_checkbox.html",
+            include_str!("templates/tag_checkbox.html"),
+        ),
+    ])?;
     let entries: Vec<_> = glob::glob(args.input.join("*.json").to_str().unwrap())
         .expect("Failed to read glob pattern")
         .collect();
@@ -125,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         context.insert("flags", &flags);
         context.insert("name", input.file_name().unwrap().to_str().unwrap());
         context.insert("svg", &document.to_string());
-        let fig = TEMPLATES.render("img.html", &context)?;
+        let fig = templates.render("img.html", &context)?;
         svgs.push(fig);
         bar.inc(1);
     }
@@ -135,7 +128,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|tag| {
             let mut context = tera::Context::new();
             context.insert("tag", &tag);
-            TEMPLATES.render("tag_checkbox.html", &context).unwrap()
+            templates.render("tag_checkbox.html", &context).unwrap()
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -145,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut context = tera::Context::new();
             context.insert("label", &k);
             context.insert("color", &v);
-            TEMPLATES.render("legend.html", &context).unwrap()
+            templates.render("legend.html", &context).unwrap()
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -161,7 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     context.insert("tag_checkboxes", &tag_cbs);
     context.insert("main", &svgs.join("\n"));
     context.insert("style", &style);
-    let html = TEMPLATES.render("catalog.html", &context)?;
+    let html = templates.render("catalog.html", &context)?;
     writer.write_all(html.as_bytes()).unwrap();
     Ok(())
 }
