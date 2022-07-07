@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::{fs::File, io::BufReader};
 use svg::node::element;
 
@@ -42,6 +42,33 @@ pub fn img2base64(img: &image::DynamicImage, format: image::ImageOutputFormat) -
     base64::encode(&cursor.into_inner())
 }
 
+pub fn normalize_path(path: &Path) -> PathBuf {
+    let mut components = path.components().peekable();
+    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
+        components.next();
+        PathBuf::from(c.as_os_str())
+    } else {
+        PathBuf::new()
+    };
+
+    for component in components {
+        match component {
+            Component::Prefix(..) => unreachable!(),
+            Component::RootDir => {
+                ret.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                ret.pop();
+            }
+            Component::Normal(c) => {
+                ret.push(c);
+            }
+        }
+    }
+    ret
+}
+
 impl LabelMeData {
     pub fn new(
         points: &[Point],
@@ -72,6 +99,7 @@ impl LabelMeData {
         }
     }
 
+    /// Convert to a shape_type-centered map with a structure map\[shape_type\]\[label\] -> points
     pub fn to_shape_map(self) -> HashMap<String, HashMap<String, Vec<Vec<Point>>>> {
         let mut map = HashMap::new();
         for shape in self.shapes {
@@ -82,6 +110,7 @@ impl LabelMeData {
         map
     }
 
+    /// Scale points
     pub fn scale(&mut self, scale: f64) {
         for shape in self.shapes.iter_mut() {
             for p in shape.points.iter_mut() {
@@ -104,11 +133,36 @@ impl LabelMeData {
         serde_json::to_writer_pretty(writer, self).map_err(|err| Box::new(err) as Box<dyn Error>)
     }
 
-    pub fn resolve_image_path(&self, json_path: &str) -> PathBuf {
-        Path::new(json_path)
+    /// Resolve imagePath
+    /// ```
+    /// use std::path::Path;
+    /// let mut data = labelme_rs::LabelMeData::new(&[], &[], 128, 128, "image.jpg");
+    ///
+    /// let image_path = data.resolve_image_path(Path::new("image.json")).into_os_string().into_string().unwrap();
+    /// assert_eq!(image_path, "image.jpg");
+    ///
+    /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// assert_eq!(image_path, "/path/to/image.jpg");
+    ///
+    /// data.imagePath = "../image.jpg".into();
+    /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// assert_eq!(image_path, "/path/image.jpg");
+    ///
+    /// data.imagePath = "../images/image.jpg".into();
+    /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// assert_eq!(image_path, "/path/images/image.jpg");
+    ///
+    /// data.imagePath = "..\\images\\image.jpg".into();
+    /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// assert_eq!(image_path, "/path/images/image.jpg");
+    /// ```
+    pub fn resolve_image_path(&self, json_path: &Path) -> PathBuf {
+        let img_rel_to_json = json_path
             .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .join(&self.imagePath.replace("\\", "/")).canonicalize().unwrap()
+            .unwrap_or_else(|| Path::new(""))
+            .join(&self.imagePath.replace('\\', "/"));
+        println!("{:?}", img_rel_to_json);
+        normalize_path(&img_rel_to_json)
     }
 
     pub fn to_svg(
@@ -253,6 +307,7 @@ pub fn load_label_colors(filename: &str) -> Result<LabelColorsHex, Box<dyn std::
 }
 
 impl ColorCycler {
+    /// Get next color
     pub fn cycle(&mut self) -> &str {
         let c = COLORS[self.i];
         self.i = (self.i + 1) % COLORS.len();

@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => LabelColorsHex::new(),
     };
 
-    let img_filename = json_data.resolve_image_path(&args.input);
+    let img_filename = json_data.resolve_image_path(std::path::Path::new(&args.input));
     let mut img = image::open(&img_filename)?;
     if let Some(resize) = args.resize {
         let orig_size = img.dimensions();
