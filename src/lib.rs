@@ -1,8 +1,11 @@
+use image::GenericImageView;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::Cursor;
+use std::path::{Path, PathBuf};
 use std::{fs::File, io::BufReader};
+use svg::node::element;
 
 pub type Flags = HashMap<String, bool>;
 pub type FlagSet = HashSet<String>;
@@ -78,6 +81,17 @@ impl LabelMeData {
         map
     }
 
+    pub fn scale(&mut self, scale: f64) {
+        for shape in self.shapes.iter_mut() {
+            for p in shape.points.iter_mut() {
+                p.0 = (scale * p.0 as f64) as f32;
+                p.1 = (scale * p.1 as f64) as f32;
+            }
+        }
+        self.imageWidth = (self.imageWidth as f64 * scale) as _;
+        self.imageHeight = (self.imageHeight as f64 * scale) as _;
+    }
+
     pub fn load(filename: &str) -> Result<Self, Box<dyn Error>> {
         Ok(serde_json::from_reader(BufReader::new(File::open(
             filename,
@@ -87,5 +101,169 @@ impl LabelMeData {
     pub fn save(&self, filename: &str) -> Result<(), Box<dyn Error>> {
         let writer = std::io::BufWriter::new(std::fs::File::create(filename)?);
         serde_json::to_writer_pretty(writer, self).map_err(|err| Box::new(err) as Box<dyn Error>)
+    }
+
+    pub fn resolve_image_path(&self, json_path: &str) -> PathBuf {
+        Path::new(json_path)
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(&self.imagePath)
+    }
+
+    pub fn to_svg(
+        self,
+        label_colors: LabelColorsHex,
+        point_radius: usize,
+        line_width: usize,
+        img: &image::DynamicImage,
+    ) -> Result<svg::Document, Box<dyn Error>> {
+        let (image_width, image_height) = img.dimensions();
+        let mut document = svg::Document::new()
+            .set("width", image_width)
+            .set("height", image_height)
+            .set("viewBox", (0i64, 0i64, image_width, image_height))
+            .set("xmlns:xlink", "http://www.w3.org/1999/xlink");
+        let b64 = format!(
+            "data:image/jpeg;base64,{}",
+            img2base64(img, image::ImageOutputFormat::Jpeg(75))
+        );
+        let bg = element::Image::new()
+            .set("x", 0i64)
+            .set("y", 0i64)
+            .set("width", image_width)
+            .set("height", image_height)
+            .set("xlink:href", b64);
+        document = document.add(bg);
+        let mut color_cycler = ColorCycler::new();
+        let shape_map = self.to_shape_map();
+        if let Some(point_data) = shape_map.get("point") {
+            for (label, points) in point_data {
+                let color = label_colors
+                    .get(label)
+                    .cloned()
+                    .unwrap_or_else(|| color_cycler.cycle().into());
+                let mut group = element::Group::new()
+                    .set("class", format!("point {}", label))
+                    .set("fill", color)
+                    .set("stroke", "none");
+                for point in points {
+                    let point_xy = point[0];
+                    let circle = element::Circle::new()
+                        .set("cx", point_xy.0)
+                        .set("cy", point_xy.1)
+                        .set("r", point_radius);
+                    group = group.add(circle);
+                }
+                document = document.add(group);
+            }
+        }
+        if let Some(rectangle_data) = shape_map.get("rectangle") {
+            for (label, rectangles) in rectangle_data {
+                let color = label_colors
+                    .get(label)
+                    .cloned()
+                    .unwrap_or_else(|| color_cycler.cycle().into());
+                let mut group = element::Group::new()
+                    .set("class", format!("rectangle {}", label))
+                    .set("fill", "none")
+                    .set("stroke", color)
+                    .set("stroke-width", line_width);
+                for rectangle in rectangles {
+                    let rect = element::Rectangle::new()
+                        .set("x", rectangle[0].0)
+                        .set("y", rectangle[0].1)
+                        .set("width", rectangle[1].0 - rectangle[0].0)
+                        .set("height", rectangle[1].1 - rectangle[0].1);
+                    group = group.add(rect);
+                }
+                document = document.add(group);
+            }
+        }
+        if let Some(circle_data) = shape_map.get("circle") {
+            for (label, circles) in circle_data {
+                let color = label_colors
+                    .get(label)
+                    .cloned()
+                    .unwrap_or_else(|| color_cycler.cycle().into());
+                let mut group = element::Group::new()
+                    .set("class", format!("circle {}", label))
+                    .set("stroke-width", line_width);
+                for circle in circles {
+                    let center = element::Circle::new()
+                        .set("cx", circle[0].0)
+                        .set("cy", circle[0].1)
+                        .set("r", point_radius)
+                        .set("fill", color.clone())
+                        .set("stroke", "none");
+                    group = group.add(center);
+                    if circle.len() > 1 {
+                        let (p1, p2) = (circle[0], circle[1]);
+                        let radius = ((p1.0 - p2.0).powi(2) + (p1.1 - p2.1).powi(2)).sqrt();
+                        let c = element::Circle::new()
+                            .set("cx", circle[0].0)
+                            .set("cy", circle[0].1)
+                            .set("r", radius)
+                            .set("fill", "none")
+                            .set("stroke", color.clone());
+                        group = group.add(c);
+                    }
+                }
+                document = document.add(group);
+            }
+        }
+        Ok(document)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl Color {
+    pub fn to_hex(&self) -> String {
+        format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
+    }
+}
+
+pub type LabelColors = std::collections::HashMap<String, Color>;
+pub type LabelColorsHex = std::collections::HashMap<String, String>;
+
+pub static COLORS: [&str; 6] = ["red", "green", "blue", "cyan", "magenta", "yellow"];
+pub struct ColorCycler {
+    i: usize,
+}
+
+pub fn load_label_colors(filename: &str) -> Result<LabelColorsHex, Box<dyn std::error::Error>> {
+    let config: serde_yaml::Value =
+        serde_yaml::from_reader(std::io::BufReader::new(std::fs::File::open(filename)?))?;
+    let colors = config.get("label_colors");
+    let label_colors: LabelColors = match colors {
+        Some(colors) => serde_yaml::from_value(colors.to_owned())?,
+        None => LabelColors::new(),
+    };
+    let hex = label_colors
+        .into_iter()
+        .map(|(k, v)| (k, v.to_hex()))
+        .collect();
+    Ok(hex)
+}
+
+impl ColorCycler {
+    pub fn cycle(&mut self) -> &str {
+        let c = COLORS[self.i];
+        self.i = (self.i + 1) % COLORS.len();
+        c
+    }
+    pub fn new() -> Self {
+        ColorCycler { i: 0 }
+    }
+}
+
+impl Default for ColorCycler {
+    fn default() -> Self {
+        Self::new()
     }
 }

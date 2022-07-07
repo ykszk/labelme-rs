@@ -41,7 +41,7 @@ fn swap_prefix(
 fn test_swap_prefix() {
     let input_filename = "tests/img1.json";
     let original_data = labelme_rs::LabelMeData::load(input_filename).unwrap();
-    let output_filename = "tests/img1_swapped.json";
+    let output_filename = "tests/output/img1_swapped.json";
     assert!(swap_prefix(
         PathBuf::from(input_filename),
         "..",
@@ -53,7 +53,6 @@ fn test_swap_prefix() {
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
     );
-    let output_filename = "tests/img1_swapped.json";
     assert!(swap_prefix(
         PathBuf::from(input_filename),
         "../",
