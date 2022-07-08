@@ -1,15 +1,15 @@
 use image::GenericImageView;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::Cursor;
 use std::path::{Component, Path, PathBuf};
 use std::{fs::File, io::BufReader};
 use svg::node::element;
 
-pub type Flags = HashMap<String, bool>;
-pub type FlagSet = HashSet<String>;
+pub type Flags = IndexMap<String, bool>;
+pub type FlagSet = IndexSet<String>;
 pub type Point = (f32, f32);
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -161,7 +161,6 @@ impl LabelMeData {
             .parent()
             .unwrap_or_else(|| Path::new(""))
             .join(&self.imagePath.replace('\\', "/"));
-        println!("{:?}", img_rel_to_json);
         normalize_path(&img_rel_to_json)
     }
 
