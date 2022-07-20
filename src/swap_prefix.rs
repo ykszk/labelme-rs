@@ -16,11 +16,11 @@ struct Args {
 }
 
 fn swap_prefix(
-    input: PathBuf,
+    input: &Path,
     prefix: &str,
-    output: Option<PathBuf>,
+    output: Option<&Path>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut json_data = labelme_rs::LabelMeData::load(input.to_str().unwrap())?;
+    let mut json_data = labelme_rs::LabelMeData::load(input)?;
     let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
     let new_image_path = format!(
         "{}/{}",
@@ -33,33 +33,23 @@ fn swap_prefix(
     );
     json_data.imagePath = new_image_path;
     let output = output.unwrap_or(input);
-    json_data.save(output.to_str().unwrap())?;
+    json_data.save(output)?;
     Ok(())
 }
 
 #[test]
 fn test_swap_prefix() {
-    let input_filename = "tests/img1.json";
-    let original_data = labelme_rs::LabelMeData::load(input_filename).unwrap();
-    let output_filename = "tests/output/img1_swapped.json";
-    assert!(swap_prefix(
-        PathBuf::from(input_filename),
-        "..",
-        Some(PathBuf::from(output_filename)),
-    )
-    .is_ok());
-    let swapped_data = labelme_rs::LabelMeData::load(output_filename).unwrap();
+    let input_filename = PathBuf::from("tests/img1.json");
+    let original_data = labelme_rs::LabelMeData::load(&input_filename).unwrap();
+    let output_filename = PathBuf::from("tests/output/img1_swapped.json");
+    assert!(swap_prefix(&input_filename, "..", Some(&output_filename),).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::load(&output_filename).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
     );
-    assert!(swap_prefix(
-        PathBuf::from(input_filename),
-        "../",
-        Some(PathBuf::from(output_filename)),
-    )
-    .is_ok());
-    let swapped_data = labelme_rs::LabelMeData::load(output_filename).unwrap();
+    assert!(swap_prefix(&input_filename, "../", Some(&output_filename),).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::load(&output_filename).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
@@ -78,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
         };
         info!("Process single file");
-        swap_prefix(args.input, &args.prefix, args.output)
+        swap_prefix(&args.input, &args.prefix, args.output.as_deref())
     } else {
         if let Some(output) = &args.output {
             assert!(output.exists(), "Output does not exist");
@@ -98,11 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         for entry in entries {
             let input = entry?;
-            let output = args
-                .output
-                .as_ref()
-                .map(|output| output.join(input.file_name().unwrap()));
-            swap_prefix(input, &args.prefix, output)?;
+            swap_prefix(&input, &args.prefix, args.output.as_deref())?;
             bar.inc(1);
         }
         bar.finish();

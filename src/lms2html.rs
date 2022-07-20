@@ -12,10 +12,10 @@ struct Args {
     /// Input labelme directory
     input: PathBuf,
     /// Output html filename
-    output: String,
+    output: PathBuf,
     /// Config filename. Used for `label_colors`
     #[clap(short, long)]
-    config: Option<String>,
+    config: Option<PathBuf>,
     /// Circle radius
     #[clap(long, default_value = "2")]
     radius: usize,
@@ -30,7 +30,7 @@ struct Args {
     title: String,
     /// CSS filename
     #[clap(long)]
-    css: Option<String>,
+    css: Option<PathBuf>,
 }
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut svgs: Vec<String> = Vec::new();
     for entry in entries {
         let input = entry?;
-        let mut json_data = labelme_rs::LabelMeData::load(input.to_str().unwrap())?;
+        let mut json_data = labelme_rs::LabelMeData::load(&input)?;
 
         let img_filename = json_data.resolve_image_path(input.as_path());
         let mut img = image::open(&img_filename)?;

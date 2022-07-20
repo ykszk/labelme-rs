@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use image::GenericImageView;
 #[macro_use]
@@ -8,12 +10,12 @@ extern crate log;
 #[clap(author, version, about, long_about = None)]
 struct Args {
     /// Input json filename
-    input: String,
+    input: PathBuf,
     /// Output svg filename
-    output: String,
+    output: PathBuf,
     /// Config filename. Used for `label_colors`
     #[clap(short, long)]
-    config: Option<String>,
+    config: Option<PathBuf>,
     /// Circle radius
     #[clap(long, default_value = "2")]
     radius: usize,

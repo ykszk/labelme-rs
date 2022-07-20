@@ -122,13 +122,13 @@ impl LabelMeData {
         self.imageHeight = (self.imageHeight as f64 * scale) as _;
     }
 
-    pub fn load(filename: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn load(filename: &Path) -> Result<Self, Box<dyn Error>> {
         Ok(serde_json::from_reader(BufReader::new(File::open(
             filename,
         )?))?)
     }
 
-    pub fn save(&self, filename: &str) -> Result<(), Box<dyn Error>> {
+    pub fn save(&self, filename: &Path) -> Result<(), Box<dyn Error>> {
         let writer = std::io::BufWriter::new(std::fs::File::create(filename)?);
         serde_json::to_writer_pretty(writer, self).map_err(|err| Box::new(err) as Box<dyn Error>)
     }
@@ -290,7 +290,7 @@ pub struct ColorCycler {
     i: usize,
 }
 
-pub fn load_label_colors(filename: &str) -> Result<LabelColorsHex, Box<dyn std::error::Error>> {
+pub fn load_label_colors(filename: &Path) -> Result<LabelColorsHex, Box<dyn std::error::Error>> {
     let config: serde_yaml::Value =
         serde_yaml::from_reader(std::io::BufReader::new(std::fs::File::open(filename)?))?;
     let colors = config.get("label_colors");
