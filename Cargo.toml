@@ -4,30 +4,17 @@ version = "0.1.0"
 authors = ["Yuki SUZUKI"]
 edition = "2021"
 
-[[bin]]
-name = "lm2svg"
-path = "src/lm2svg.rs"
+[workspace]
 
-[[bin]]
-name = "lms2html"
-path = "src/lms2html.rs"
-
-[[bin]]
-name = "lm_swap_prefix"
-path = "src/swap_prefix.rs"
+members = [
+    "app",
+]
 
 [dependencies]
-clap = { version = "3", features = ["derive"] }
-log = "0"
-env_logger = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0"
 image = { version="0.24", default-features = false, features = ["png", "jpeg"] }
 base64 = "0.13.0"
 svg = "0"
-glob = "0"
-indicatif = "0.16"
-regex = "1"
-tera = { version = "1", default-features = false }
 indexmap = { version="1", features = ["serde"] }

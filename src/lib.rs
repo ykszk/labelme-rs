@@ -1,4 +1,6 @@
+pub use image;
 use image::GenericImageView;
+pub use indexmap;
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -6,6 +8,7 @@ use std::error::Error;
 use std::io::Cursor;
 use std::path::{Component, Path, PathBuf};
 use std::{fs::File, io::BufReader};
+pub use svg;
 use svg::node::element;
 
 pub type Flags = IndexMap<String, bool>;

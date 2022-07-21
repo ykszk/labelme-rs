@@ -24,6 +24,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "app"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "env_logger",
+ "glob",
+ "indicatif",
+ "labelme-rs",
+ "log",
+ "regex",
+ "tera",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -372,19 +386,12 @@ name = "labelme-rs"
 version = "0.1.0"
 dependencies = [
  "base64",
- "clap",
- "env_logger",
- "glob",
  "image",
  "indexmap",
- "indicatif",
- "log",
- "regex",
  "serde",
  "serde_json",
  "serde_yaml",
  "svg",
- "tera",
 ]
 
 [[package]]
@@ -662,9 +669,9 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.8.24"
+version = "0.8.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "707d15895415db6628332b737c838b88c598522e4dc70647e59b72312924aebc"
+checksum = "578a7433b776b56a35785ed5ce9a7e777ac0598aac5a6dd1b4b18a307c7fc71b"
 dependencies = [
  "indexmap",
  "ryu",

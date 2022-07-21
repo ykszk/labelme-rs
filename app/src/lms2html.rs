@@ -1,6 +1,6 @@
 use clap::Parser;
-use image::GenericImageView;
-use indexmap::IndexSet;
+use labelme_rs::image::GenericImageView;
+use labelme_rs::indexmap::IndexSet;
 use std::{io::Write, path::PathBuf};
 #[macro_use]
 extern crate log;
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut json_data = labelme_rs::LabelMeData::load(&input)?;
 
         let img_filename = json_data.resolve_image_path(input.as_path());
-        let mut img = image::open(&img_filename)?;
+        let mut img = labelme_rs::image::open(&img_filename)?;
         if let Some(resize) = &args.resize {
             let orig_size = img.dimensions();
             let re = regex::Regex::new(r"^(\d+)%$")?;
