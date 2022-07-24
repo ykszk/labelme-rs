@@ -15,6 +15,14 @@ path = "src/lms2html.rs"
 name = "lm_swap_prefix"
 path = "src/swap_prefix.rs"
 
+[lib]
+name = "dsl"
+path = "src/dsl.rs"
+
+[[bin]]
+name = "lm_validate"
+path = "src/validate.rs"
+
 [dependencies]
 labelme-rs = { path = ".."}
 clap = { version = "3", features = ["derive"] }
@@ -24,3 +32,5 @@ log = "0"
 env_logger = "0.9"
 glob = "0"
 indicatif = "0.16"
+chumsky = "0"
+num_cpus = "1"

@@ -39,16 +39,18 @@ fn swap_prefix(
 
 #[test]
 fn test_swap_prefix() {
-    let input_filename = PathBuf::from("tests/img1.json");
-    let original_data = labelme_rs::LabelMeData::load(&input_filename).unwrap();
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    filename.push("tests/img1.json");
+    println!("{:?}", filename);
+    let original_data = labelme_rs::LabelMeData::load(&filename).unwrap();
     let output_filename = PathBuf::from("tests/output/img1_swapped.json");
-    assert!(swap_prefix(&input_filename, "..", Some(&output_filename),).is_ok());
+    assert!(swap_prefix(&filename, "..", Some(&output_filename),).is_ok());
     let swapped_data = labelme_rs::LabelMeData::load(&output_filename).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
     );
-    assert!(swap_prefix(&input_filename, "../", Some(&output_filename),).is_ok());
+    assert!(swap_prefix(&filename, "../", Some(&output_filename),).is_ok());
     let swapped_data = labelme_rs::LabelMeData::load(&output_filename).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
