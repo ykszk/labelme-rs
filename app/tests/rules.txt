@@ -1,0 +1,6 @@
+TL > 0
+TR > 0
+BL > 0
+BR > 0
+TL == TR
+BL == BR

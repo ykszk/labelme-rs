@@ -11,3 +11,10 @@ Create SVG image from labeme annotation.
 
 ## lms2html
 Create HTML with svgs from labelme directory.
+
+## lm_validate
+Validate the number of annotations based on the given rules.
+
+```console
+lm_validate app/tests/rules.txt app/tests --verbose
+```

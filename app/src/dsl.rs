@@ -1,4 +1,9 @@
 pub use chumsky::prelude::*;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+};
 
 #[derive(Clone, Debug)]
 pub enum Expr {
@@ -86,18 +91,16 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .to(CondOp::And)
             .or(just("||".to_string()).to(CondOp::Or));
 
-        let cond = compare
+        compare
             .clone()
             .then(cond_op.then(compare).repeated())
-            .foldl(|a, (op, b)| Expr::Cond(Box::new(a), op, Box::new(b)));
-
-        cond
+            .foldl(|a, (op, b)| Expr::Cond(Box::new(a), op, Box::new(b)))
     });
 
     expr.then_ignore(end())
 }
 
-pub fn eval<'a>(expr: &'a Expr, vars: &Vec<(&'a String, isize)>) -> Result<isize, String> {
+pub fn eval<'a>(expr: &'a Expr, vars: &Vec<(&'a String, isize)>) -> Result<isize, (isize, isize)> {
     match expr {
         Expr::Num(x) => Ok(*x),
         Expr::Neg(a) => Ok(-eval(a, vars)?),
@@ -118,7 +121,7 @@ pub fn eval<'a>(expr: &'a Expr, vars: &Vec<(&'a String, isize)>) -> Result<isize
             if ret {
                 Ok(1)
             } else {
-                Err(format!("{} and {}", a, b))
+                Err((a, b))
             }
         }
         Expr::Cond(a, op, b) => {
@@ -138,4 +141,30 @@ pub fn eval<'a>(expr: &'a Expr, vars: &Vec<(&'a String, isize)>) -> Result<isize
             }
         }
     }
+}
+
+pub fn load_rules(filename: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let rules: Vec<String> = BufReader::new(File::open(filename)?)
+        .lines()
+        .filter_map(|l| l.ok())
+        .collect();
+    Ok(rules)
+}
+
+/// Parse rules
+/// ```
+/// let ast = dsl::parse_rules(&vec!["a == b".into()]);
+/// assert!(ast.is_ok());
+/// let ast = dsl::parse_rules(&vec!["a = b".into()]);
+/// assert!(ast.is_err());
+/// ```
+pub fn parse_rules(rules: &[String]) -> Result<Vec<Expr>, Box<dyn std::error::Error>> {
+    let asts: Result<Vec<_>, _> = rules.iter().map(|r| parser().parse(r.clone())).collect();
+    asts.map_err(|parse_errs| {
+        let errs: Vec<_> = parse_errs
+            .into_iter()
+            .map(|e| format!("Parse error: {}", e))
+            .collect();
+        errs.join("\n").into()
+    })
 }
