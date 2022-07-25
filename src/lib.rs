@@ -147,18 +147,30 @@ impl LabelMeData {
     /// assert_eq!(image_path, "image.jpg");
     ///
     /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// #[cfg(target_os = "windows")]
+    /// assert_eq!(image_path, r"\path\to\image.jpg");
+    /// #[cfg(not(target_os = "windows"))]
     /// assert_eq!(image_path, "/path/to/image.jpg");
     ///
     /// data.imagePath = "../image.jpg".into();
     /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// #[cfg(target_os = "windows")]
+    /// assert_eq!(image_path, r"\path\image.jpg");
+    /// #[cfg(not(target_os = "windows"))]
     /// assert_eq!(image_path, "/path/image.jpg");
     ///
     /// data.imagePath = "../images/image.jpg".into();
     /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// #[cfg(target_os = "windows")]
+    /// assert_eq!(image_path, r"\path\images\image.jpg");
+    /// #[cfg(not(target_os = "windows"))]
     /// assert_eq!(image_path, "/path/images/image.jpg");
     ///
-    /// data.imagePath = "..\\images\\image.jpg".into();
+    /// data.imagePath = r"..\images\image.jpg".into();
     /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// #[cfg(target_os = "windows")]
+    /// assert_eq!(image_path, r"\path\images\image.jpg");
+    /// #[cfg(not(target_os = "windows"))]
     /// assert_eq!(image_path, "/path/images/image.jpg");
     /// ```
     pub fn resolve_image_path(&self, json_path: &Path) -> PathBuf {
