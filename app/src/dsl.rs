@@ -15,7 +15,6 @@ pub enum Expr {
     Sub(Box<Expr>, Box<Expr>),
     Mul(Box<Expr>, Box<Expr>),
     Cmp(Box<Expr>, CmpOp, Box<Expr>),
-    Cond(Box<Expr>, CondOp, Box<Expr>),
 }
 
 #[derive(Clone, Debug)]
@@ -26,12 +25,6 @@ pub enum CmpOp {
     GT,
     Eq,
     NotEq,
-}
-
-#[derive(Clone, Debug)]
-pub enum CondOp {
-    And,
-    Or,
 }
 
 pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
@@ -82,19 +75,10 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .or(just(">=".to_string()).to(CmpOp::GE))
             .or(just(">".to_string()).to(CmpOp::GT));
 
-        let compare = sum
+        sum
             .clone()
             .then(cmp_op.then(sum).repeated())
-            .foldl(|a, (op, b)| Expr::Cmp(Box::new(a), op, Box::new(b)));
-
-        let cond_op = just("&&".to_string())
-            .to(CondOp::And)
-            .or(just("||".to_string()).to(CondOp::Or));
-
-        compare
-            .clone()
-            .then(cond_op.then(compare).repeated())
-            .foldl(|a, (op, b)| Expr::Cond(Box::new(a), op, Box::new(b)))
+            .foldl(|a, (op, b)| Expr::Cmp(Box::new(a), op, Box::new(b)))
     });
 
     expr.then_ignore(end())
@@ -123,15 +107,6 @@ pub fn eval<'a>(expr: &'a Expr, vars: &Vec<(&'a String, isize)>) -> Result<isize
             } else {
                 Err((a, b))
             }
-        }
-        Expr::Cond(a, op, b) => {
-            let a = eval(a, vars)? != 0;
-            let b = eval(b, vars)? != 0;
-            let ret = match op {
-                CondOp::And => a && b,
-                CondOp::Or => a || b,
-            };
-            Ok(if ret { 1 } else { 0 })
         }
         Expr::Var(name) => {
             if let Some((_, val)) = vars.iter().rev().find(|(var, _)| *var == name) {
