@@ -7,7 +7,7 @@ extern crate log;
 
 /// Create HTML from labelme directory
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(name=env!("CARGO_BIN_NAME"), author, version, about, long_about = None)]
 struct Args {
     /// Input labelme directory
     input: PathBuf,

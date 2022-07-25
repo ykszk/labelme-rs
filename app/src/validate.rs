@@ -171,7 +171,7 @@ fn test_check_json() {
 
 /// Validate labelme annotations
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(name=env!("CARGO_BIN_NAME"), author, version, about, long_about = None)]
 struct Args {
     /// Rules
     rules: PathBuf,

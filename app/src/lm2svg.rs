@@ -6,7 +6,7 @@ extern crate log;
 
 /// Create SVG image from a labeme annotation
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(name=env!("CARGO_BIN_NAME"), author, version, about, long_about = None)]
 struct Args {
     /// Input json filename
     input: PathBuf,
