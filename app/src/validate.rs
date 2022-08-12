@@ -210,23 +210,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to read glob pattern")
         .collect();
     let file_list = Arc::new(file_list);
-    {
+    let flag_set = IndexSet::from_iter(args.flag.into_iter());
+    std::thread::scope(|scope| {
         let mut handles = vec![];
-        let flag_set = IndexSet::from_iter(args.flag.into_iter());
         for thread_i in 0..n_threads {
             let checked_count = Arc::clone(&checked_count);
             let valid_count = Arc::clone(&valid_count);
-            let file_list = Arc::clone(&file_list);
-            let indir = args.input.clone();
-            let flag_set = flag_set.clone();
-            let rules = rules.clone();
-            let asts = asts.clone();
-            let handle = std::thread::spawn(move || {
+            let file_list = &file_list;
+            let indir = &args.input;
+            let flag_set = &flag_set;
+            let rules = &rules;
+            let asts = &asts;
+            let handle = scope.spawn(move || {
                 for i in (thread_i..file_list.len()).step_by(n_threads) {
                     let entry = &file_list[i];
                     match entry {
                         Ok(path) => {
-                            let check_result = check_json(&rules, &asts, path, &flag_set);
+                            let check_result = check_json(rules, asts, path, flag_set);
                             let disp_path = path.strip_prefix(&indir).unwrap_or(path.as_path());
                             match check_result {
                                 Ok(ret) => {
@@ -253,7 +253,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for handle in handles {
             handle.join().unwrap();
         }
-    }
+    });
     if args.stats {
         println!(
             "{} / {} annotations are valid.",
