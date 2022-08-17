@@ -139,6 +139,11 @@ impl LabelMeData {
     }
 
     /// Resolve imagePath
+    ///
+    /// # Arguments
+    ///
+    /// * json_path: absolute path
+    ///
     /// ```
     /// use std::path::Path;
     /// let mut data = labelme_rs::LabelMeData::new(&[], &[], 128, 128, "image.jpg");
