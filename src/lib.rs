@@ -245,6 +245,9 @@ impl LabelMeData {
                     .set("stroke", color)
                     .set("stroke-width", line_width);
                 for rectangle in rectangles {
+                    if rectangle.len() != 2 {
+                        continue;
+                    }
                     let rect = element::Rectangle::new()
                         .set("x", rectangle[0].0)
                         .set("y", rectangle[0].1)
@@ -265,6 +268,9 @@ impl LabelMeData {
                     .set("class", format!("circle {}", label))
                     .set("stroke-width", line_width);
                 for circle in circles {
+                    if circle.len() != 2 {
+                        continue;
+                    }
                     let center = element::Circle::new()
                         .set("cx", circle[0].0)
                         .set("cy", circle[0].1)
