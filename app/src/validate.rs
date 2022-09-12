@@ -187,6 +187,9 @@ struct Args {
     /// Ignore json files containing given flag(s). Multiple flags are concatenated by OR.
     #[clap(short, long)]
     ignore: Vec<String>,
+    /// Additional rules
+    #[clap(short, long)]
+    additional: Vec<PathBuf>,
     /// Report stats at the end
     #[clap(short, long)]
     stats: bool,
@@ -201,7 +204,11 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let verbosity = args.verbose;
-    let rules = dsl::load_rules(&args.rules)?;
+    let mut rules = dsl::load_rules(&args.rules)?;
+    for filename in args.additional {
+        let ar = dsl::load_rules(&filename)?;
+        rules.extend(ar);
+    }
     let asts = dsl::parse_rules(&rules)?;
     let indir = &args.input;
     if !indir.exists() {
