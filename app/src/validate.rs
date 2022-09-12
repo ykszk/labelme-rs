@@ -44,6 +44,7 @@ fn check_json(
     asts: &[dsl::Expr],
     json_filename: &Path,
     flags: &FlagSet,
+    ignores: &FlagSet,
 ) -> Result<CheckResult, CheckError> {
     let json_data: LabelMeData = serde_json::from_reader(BufReader::new(
         File::open(json_filename).or(Err(CheckError::FileNotFound))?,
@@ -59,7 +60,10 @@ fn check_json(
                 }
             },
         ));
-    if !flags.is_empty() && json_flags.intersection(flags).count() == 0 {
+    if !flags.is_empty()
+        && (json_flags.intersection(flags).count() == 0
+            || json_flags.intersection(ignores).count() > 0)
+    {
         return Ok(CheckResult::Skipped);
     }
     let mut point_map: IndexMap<String, Vec<Point>> = IndexMap::new();
@@ -177,9 +181,12 @@ struct Args {
     rules: PathBuf,
     /// Input directory
     input: PathBuf,
-    /// Check only json files containing given flag(s)
+    /// Check only json files containing given flag(s). Multiple flags are concatenated by OR.
     #[clap(short, long)]
     flag: Vec<String>,
+    /// Ignore json files containing given flag(s). Multiple flags are concatenated by OR.
+    #[clap(short, long)]
+    ignore: Vec<String>,
     /// Report stats at the end
     #[clap(short, long)]
     stats: bool,
@@ -211,6 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
     let file_list = Arc::new(file_list);
     let flag_set = IndexSet::from_iter(args.flag.into_iter());
+    let ignore_set = IndexSet::from_iter(args.ignore.into_iter());
     std::thread::scope(|scope| {
         let mut handles = vec![];
         for thread_i in 0..n_threads {
@@ -219,6 +227,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let file_list = &file_list;
             let indir = &args.input;
             let flag_set = &flag_set;
+            let ignore_set = &ignore_set;
             let rules = &rules;
             let asts = &asts;
             let handle = scope.spawn(move || {
@@ -226,7 +235,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let entry = &file_list[i];
                     match entry {
                         Ok(path) => {
-                            let check_result = check_json(rules, asts, path, flag_set);
+                            let check_result = check_json(rules, asts, path, flag_set, ignore_set);
                             let disp_path = path.strip_prefix(&indir).unwrap_or(path.as_path());
                             match check_result {
                                 Ok(ret) => {
