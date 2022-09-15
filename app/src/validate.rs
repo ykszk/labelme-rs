@@ -60,9 +60,8 @@ fn check_json(
                 }
             },
         ));
-    if !flags.is_empty()
-        && (json_flags.intersection(flags).count() == 0
-            || json_flags.intersection(ignores).count() > 0)
+    if (!flags.is_empty() && json_flags.intersection(flags).count() == 0)
+        || json_flags.intersection(ignores).count() > 0
     {
         return Ok(CheckResult::Skipped);
     }
@@ -90,7 +89,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new()).unwrap(),
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
         CheckResult::Passed,
         "Valid rule"
     );
@@ -101,7 +100,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new()).unwrap(),
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
         CheckResult::Passed,
         "Non-existent variable"
     );
@@ -112,7 +111,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new()).unwrap_err(),
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
         CheckError::EvaluatedFalse(rule, 1, 0),
         "False rule"
     );
@@ -123,7 +122,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/test.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new()).unwrap(),
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
         CheckResult::Passed,
         "Valid rule"
     );
@@ -132,7 +131,8 @@ fn test_check_json() {
             &rules,
             &asts,
             &filename,
-            &FlagSet::from_iter(vec!["f1".into()])
+            &FlagSet::from_iter(vec!["f1".into()]),
+            &FlagSet::new()
         )
         .unwrap(),
         CheckResult::Passed,
@@ -143,7 +143,8 @@ fn test_check_json() {
             &rules,
             &asts,
             &filename,
-            &FlagSet::from_iter(vec!["f2".into()])
+            &FlagSet::from_iter(vec!["f2".into()]),
+            &FlagSet::new()
         )
         .unwrap(),
         CheckResult::Skipped,
@@ -154,7 +155,20 @@ fn test_check_json() {
             &rules,
             &asts,
             &filename,
-            &FlagSet::from_iter(vec!["fx".into()])
+            &FlagSet::new(),
+            &FlagSet::from_iter(vec!["f1".into()])
+        )
+        .unwrap(),
+        CheckResult::Skipped,
+        "Test for ignoring flag"
+    );
+    assert_eq!(
+        check_json(
+            &rules,
+            &asts,
+            &filename,
+            &FlagSet::from_iter(vec!["fx".into()]),
+            &FlagSet::new()
         )
         .unwrap(),
         CheckResult::Skipped,
@@ -167,7 +181,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/test.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new()).unwrap_err(),
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
         CheckError::EvaluatedFalse(rule, 1, 2),
         "False rule"
     );
