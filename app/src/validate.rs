@@ -250,7 +250,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         checked_count.fetch_add(1, Ordering::SeqCst);
                                         valid_count.fetch_add(1, Ordering::SeqCst);
                                     }
-                                    if verbosity > 0 {
+                                    if verbosity > 0 && ret != CheckResult::Skipped {
                                         println!("{},", disp_path.to_str().unwrap());
                                     }
                                 }
