@@ -112,10 +112,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|(k, _v)| k.clone())
             .collect();
         let flags = flags.join(" ");
+        let label_counts = json_data.clone().count_labels();
+        let title = label_counts.iter().map(|(k, v)| format!("{}:{}", k, v)).collect::<Vec<_>>().join("\n");
         let document = json_data.to_svg(&label_colors, args.radius, args.line_width, &img)?;
         let mut context = tera::Context::new();
         context.insert("tags", &flags);
         context.insert("flags", &flags);
+        context.insert("title", &title);
         context.insert("name", input.file_name().unwrap().to_str().unwrap());
         context.insert("svg", &document.to_string());
         let fig = templates.render("img.html", &context)?;

@@ -17,7 +17,7 @@ pub type Flags = IndexMap<String, bool>;
 pub type FlagSet = IndexSet<String>;
 pub type Point = (f32, f32);
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Shape {
     pub label: String,
     pub points: Vec<Point>,
@@ -26,7 +26,7 @@ pub struct Shape {
     pub flags: Flags,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[allow(non_snake_case)]
 pub struct LabelMeData {
     pub version: String,
@@ -184,6 +184,29 @@ impl LabelMeData {
             .unwrap_or_else(|| Path::new(""))
             .join(&self.imagePath.replace('\\', "/"));
         normalize_path(&img_rel_to_json)
+    }
+
+    /// Count the number of labels
+    ///
+    /// ```
+    /// let data = labelme_rs::LabelMeData::new(&[(1.0, 1.0), (2.0, 2.0), (3.0, 3.0)], &["L1".into(), "L2".into(), "L2".into()], 128, 128, "image.jpg");
+    /// let counts = data.count_labels();
+    /// assert_eq!(*counts.get("L1").unwrap(), 1usize);
+    /// assert_eq!(*counts.get("L2").unwrap(), 2usize);
+    /// assert_eq!(counts.get("L0").cloned().unwrap_or(0usize), 0usize);
+    /// ```
+    pub fn count_labels(self) -> HashMap<String, usize> {
+        let mut counts: HashMap<String, usize> = HashMap::new();
+        let mut shape_map = self.to_shape_map();
+        if let Some(point_data) = shape_map.remove("point") {
+            for (label, points) in point_data {
+                counts
+                    .entry(label)
+                    .and_modify(|count| *count += points.len())
+                    .or_insert_with(|| points.len());
+            }
+        }
+        counts
     }
 
     pub fn to_svg(
