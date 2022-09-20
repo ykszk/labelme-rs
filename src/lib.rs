@@ -5,7 +5,6 @@ use indexmap::{IndexMap, IndexSet};
 pub use serde;
 use serde::{Deserialize, Serialize};
 pub use serde_json;
-use std::collections::HashMap;
 use std::error::Error;
 use std::io::Cursor;
 use std::path::{Component, Path, PathBuf};
@@ -105,10 +104,10 @@ impl LabelMeData {
     }
 
     /// Convert to a shape_type-centered map with a structure map\[shape_type\]\[label\] -> points
-    pub fn to_shape_map(self) -> HashMap<String, HashMap<String, Vec<Vec<Point>>>> {
-        let mut map = HashMap::new();
+    pub fn to_shape_map(self) -> IndexMap<String, IndexMap<String, Vec<Vec<Point>>>> {
+        let mut map = IndexMap::new();
         for shape in self.shapes {
-            let m = map.entry(shape.shape_type).or_insert_with(HashMap::new);
+            let m = map.entry(shape.shape_type).or_insert_with(IndexMap::new);
             let v = m.entry(shape.label).or_insert_with(Vec::new);
             v.push(shape.points);
         }
@@ -195,8 +194,8 @@ impl LabelMeData {
     /// assert_eq!(*counts.get("L2").unwrap(), 2usize);
     /// assert_eq!(counts.get("L0").cloned().unwrap_or(0usize), 0usize);
     /// ```
-    pub fn count_labels(self) -> HashMap<String, usize> {
-        let mut counts: HashMap<String, usize> = HashMap::new();
+    pub fn count_labels(self) -> IndexMap<String, usize> {
+        let mut counts: IndexMap<String, usize> = IndexMap::new();
         let mut shape_map = self.to_shape_map();
         if let Some(point_data) = shape_map.remove("point") {
             for (label, points) in point_data {
