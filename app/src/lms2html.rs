@@ -1,7 +1,7 @@
 use clap::Parser;
 use labelme_rs::image::GenericImageView;
-use labelme_rs::indexmap::IndexSet;
-use std::{io::Write, path::PathBuf};
+use labelme_rs::indexmap::IndexMap;
+use std::{io::BufRead, io::Write, path::PathBuf};
 #[macro_use]
 extern crate log;
 
@@ -16,6 +16,9 @@ struct Args {
     /// Config filename. Used for `label_colors`
     #[clap(short, long)]
     config: Option<PathBuf>,
+    /// Flags filename. Used to sort flags
+    #[clap(short, long)]
+    flags: Option<PathBuf>,
     /// Circle radius
     #[clap(long, default_value = "2")]
     radius: usize,
@@ -62,7 +65,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(config) => load_label_colors(&config)?,
         None => LabelColorsHex::new(),
     };
-    let mut all_tags: IndexSet<String> = IndexSet::new();
+    let mut all_tags: IndexMap<String, bool> = match args.flags {
+        Some(filename) => {
+            let buff_reader = std::io::BufReader::new(std::fs::File::open(filename)?);
+            IndexMap::from_iter(
+                buff_reader
+                    .lines()
+                    .map(|l| l.expect("Could not parse line"))
+                    .map(|e| (e, false)),
+            )
+        }
+        None => IndexMap::new(),
+    };
     let mut svgs: Vec<String> = Vec::new();
     for entry in entries {
         let input = entry?;
@@ -102,7 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         for (flag, checked) in json_data.flags.iter() {
             if *checked {
-                all_tags.insert(flag.clone()); // should get_or_insert_with be used?
+                *all_tags.entry(flag.into()).or_insert(true) = true;
             }
         }
         let flags: Vec<_> = json_data
@@ -113,7 +127,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
         let flags = flags.join(" ");
         let label_counts = json_data.clone().count_labels();
-        let title = label_counts.iter().map(|(k, v)| format!("{}:{}", k, v)).collect::<Vec<_>>().join("\n");
+        let title = label_counts
+            .iter()
+            .map(|(k, v)| format!("{}:{}", k, v))
+            .collect::<Vec<_>>()
+            .join("\n");
         let document = json_data.to_svg(&label_colors, args.radius, args.line_width, &img)?;
         let mut context = tera::Context::new();
         context.insert("tags", &flags);
@@ -128,10 +146,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     bar.finish();
     let tag_cbs = all_tags
         .iter()
-        .map(|tag| {
-            let mut context = tera::Context::new();
-            context.insert("tag", &tag);
-            templates.render("tag_checkbox.html", &context).unwrap()
+        .filter_map(|(tag, checked)| {
+            if *checked {
+                let mut context = tera::Context::new();
+                context.insert("tag", &tag);
+                Some(templates.render("tag_checkbox.html", &context).unwrap())
+            } else {
+                None
+            }
         })
         .collect::<Vec<_>>()
         .join("\n");
