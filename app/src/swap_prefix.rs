@@ -25,7 +25,7 @@ fn swap_prefix(
     let new_image_path = format!(
         "{}/{}",
         prefix,
-        Path::new(&json_data.imagePath)
+        Path::new(&json_data.imagePath.replace('\\', "/"))
             .file_name()
             .unwrap()
             .to_str()
@@ -56,6 +56,14 @@ fn test_swap_prefix() {
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
     );
+
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    filename.push("tests/backslash.json");
+    println!("{:?}", filename);
+    let output_filename = PathBuf::from("tests/output/img1_swapped.json");
+    assert!(swap_prefix(&filename, "..", Some(&output_filename),).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::load(&output_filename).unwrap();
+    assert_eq!("../stem.jpg", swapped_data.imagePath);
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

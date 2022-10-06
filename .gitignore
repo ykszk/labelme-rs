@@ -1,4 +1,4 @@
 *.svg
 /target
-tests/app/output/*.json
+app/tests/output/*.json
 tmp*
