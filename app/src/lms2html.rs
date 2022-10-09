@@ -1,7 +1,7 @@
 use clap::Parser;
 use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::IndexMap;
-use std::{io::BufRead, io::Write, path::PathBuf};
+use std::{io::BufRead, io::Write, path::Path, path::PathBuf};
 #[macro_use]
 extern crate log;
 
@@ -34,6 +34,9 @@ struct Args {
     /// CSS filename
     #[clap(long)]
     css: Option<PathBuf>,
+    /// Override imagePath's directory
+    #[clap(long)]
+    image_dir: Option<PathBuf>,
 }
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
@@ -82,8 +85,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let input = entry?;
         let mut json_data = labelme_rs::LabelMeData::load(&input)?;
 
-        let img_filename = json_data.resolve_image_path(&std::fs::canonicalize(&input)?);
-        let mut img = labelme_rs::image::open(&img_filename)?;
+        let img_filename = if let Some(image_dir) = &args.image_dir {
+            let filename = Path::new(&json_data.imagePath).file_name().unwrap();
+            image_dir.join(filename)
+        } else {
+            json_data.resolve_image_path(&std::fs::canonicalize(&input)?)
+        };
+        let mut img = labelme_rs::image::open(&img_filename).unwrap_or_else(|_| {
+            panic!(
+                "Image file {} not found.",
+                img_filename.as_os_str().to_str().unwrap()
+            )
+        });
         if let Some(resize) = &args.resize {
             let orig_size = img.dimensions();
             let re = regex::Regex::new(r"^(\d+)%$")?;
