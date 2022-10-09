@@ -1,6 +1,6 @@
 [package]
 name = "labelme-rs"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Yuki SUZUKI"]
 edition = "2021"
 
@@ -12,7 +12,6 @@ members = [
 
 [profile.release]
 strip = true
-lto = true
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

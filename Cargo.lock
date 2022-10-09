@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "app"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "chumsky",
  "clap",
@@ -442,7 +442,7 @@ checksum = "9478aa10f73e7528198d75109c8be5cd7d15fb530238040148d5f9a22d4c5b3b"
 
 [[package]]
 name = "labelme-rs"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "base64",
  "image",
