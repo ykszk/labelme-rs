@@ -33,4 +33,4 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          image_tagging-${{github.ref_name}}.zip
+          labelme-rs-${{github.ref_name}}.zip
