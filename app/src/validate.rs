@@ -17,14 +17,24 @@ use std::sync::{
 enum CheckError {
     FileNotFound,
     InvalidJson,
-    EvaluatedFalse(String, isize, isize),
+    EvaluatedFalse(String, (isize, isize)),
+    EvaluatedMultipleFalses(Vec<(String, (isize, isize))>),
 }
 
 impl fmt::Display for CheckError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CheckError::EvaluatedFalse(cond, c1, c2) => {
-                write!(f, "Unsatisfied rule \"{}\": {} vs. {}", cond, c1, c2)
+            CheckError::EvaluatedFalse(cond, (c1, c2)) => {
+                write!(f, "Unsatisfied rule; \"{}\": {} vs. {}", cond, c1, c2)
+            }
+            CheckError::EvaluatedMultipleFalses(errors) => {
+                write!(f, "Unsatisfied rules;")?;
+                let msg = errors
+                    .iter()
+                    .map(|(cond, (c1, c2))| format!(" \"{}\": {} vs. {}", cond, c1, c2))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                f.write_str(&msg)
             }
             _ => write!(f, "{:?}", self),
         }
@@ -74,11 +84,26 @@ fn check_json(
         .iter()
         .map(|(k, v)| (k, v.len() as isize))
         .collect();
-    for (i, ast) in asts.iter().enumerate() {
-        dsl::eval(ast, &vars)
-            .map_err(|(a, b)| CheckError::EvaluatedFalse(rules[i].clone(), a, b))?;
+
+    let mut errors: Vec<_> = asts
+        .iter()
+        .zip(rules.iter())
+        .filter_map(|(ast, rule)| {
+            let result = dsl::eval(ast, &vars);
+            match result {
+                Ok(_) => None,
+                Err(vals) => Some((rule.clone(), vals)),
+            }
+        })
+        .collect();
+    if errors.is_empty() {
+        Ok(CheckResult::Passed)
+    } else if errors.len() == 1 {
+        let (rule, vals) = errors.pop().unwrap();
+        Err(CheckError::EvaluatedFalse(rule, vals))
+    } else {
+        Err(CheckError::EvaluatedMultipleFalses(errors))
     }
-    Ok(CheckResult::Passed)
 }
 
 #[test]
@@ -112,7 +137,18 @@ fn test_check_json() {
     filename.push("tests/img1.json");
     assert_eq!(
         check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
-        CheckError::EvaluatedFalse(rule, 1, 0),
+        CheckError::EvaluatedFalse(rule, (1, 0)),
+        "False rule"
+    );
+    let (rule1, rule2) = ("TL == 0".to_string(), "TR == 1".to_string());
+    let rules = vec![rule1.clone(), rule2.clone()];
+    let asts = dsl::parse_rules(&rules).unwrap();
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let errors = vec![(rule1, (1, 0)), (rule2, (0, 1))];
+    filename.push("tests/img1.json");
+    assert_eq!(
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
+        CheckError::EvaluatedMultipleFalses(errors),
         "False rule"
     );
 
@@ -182,7 +218,7 @@ fn test_check_json() {
     filename.push("tests/test.json");
     assert_eq!(
         check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
-        CheckError::EvaluatedFalse(rule, 1, 2),
+        CheckError::EvaluatedFalse(rule, (1, 2)),
         "False rule"
     );
 }
