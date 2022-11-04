@@ -2,6 +2,11 @@
 name = "app"
 version = "0.3.3"
 edition = "2021"
+authors = ["Yuki SUZUKI <y-suzuki@radiol.med.osaka-u.ac.jp>"]
+description = """
+My utility tools for labelme.
+Check the repository (https://github.com/ykszk/image_tagging_tool) for details.
+"""
 
 [[bin]]
 name = "lm2svg"

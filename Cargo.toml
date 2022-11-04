@@ -1,8 +1,9 @@
 [package]
 name = "labelme-rs"
 version = "0.3.3"
-authors = ["Yuki SUZUKI"]
+authors = ["Yuki SUZUKI <y-suzuki@radiol.med.osaka-u.ac.jp>"]
 edition = "2021"
+repository = "https://github.com/ykszk/labelme-rs"
 
 [workspace]
 
