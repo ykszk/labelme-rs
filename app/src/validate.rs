@@ -109,7 +109,7 @@ fn check_json(
 #[test]
 fn test_check_json() {
     let rule = "TL > 0".to_string();
-    let rules = vec![rule.clone()];
+    let rules = vec![rule];
     let asts = dsl::parse_rules(&rules).unwrap();
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
@@ -120,7 +120,7 @@ fn test_check_json() {
     );
 
     let rule = "X == 0".to_string();
-    let rules = vec![rule.clone()];
+    let rules = vec![rule];
     let asts = dsl::parse_rules(&rules).unwrap();
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
@@ -153,7 +153,7 @@ fn test_check_json() {
     );
 
     let rule = "TL == TR".to_string();
-    let rules = vec![rule.clone()];
+    let rules = vec![rule];
     let asts = dsl::parse_rules(&rules).unwrap();
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/test.json");
@@ -290,7 +290,7 @@ pub fn cmd_validate(args: ValidateArgs) -> Result<(), Box<dyn std::error::Error>
                     match entry {
                         Ok(path) => {
                             let check_result = check_json(rules, asts, path, flag_set, ignore_set);
-                            let disp_path = path.strip_prefix(&indir).unwrap_or(path.as_path());
+                            let disp_path = path.strip_prefix(indir).unwrap_or(path.as_path());
                             match check_result {
                                 Ok(ret) => {
                                     if ret == CheckResult::Passed {

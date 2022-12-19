@@ -34,7 +34,7 @@ pub fn cmd_svg(args: SvgArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     let img_filename =
         json_data.resolve_image_path(&std::fs::canonicalize(std::path::Path::new(&args.input))?);
-    let mut img = labelme_rs::image::open(&img_filename)?;
+    let mut img = labelme_rs::image::open(img_filename)?;
     if let Some(resize) = args.resize {
         let orig_size = img.dimensions();
         let re = regex::Regex::new(r"^(\d+)%$")?;

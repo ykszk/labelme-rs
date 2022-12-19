@@ -43,7 +43,7 @@ pub type PointData = LabelMeData;
 pub fn img2base64(img: &image::DynamicImage, format: image::ImageOutputFormat) -> String {
     let mut cursor = Cursor::new(Vec::new());
     img.write_to(&mut cursor, format).unwrap();
-    base64::encode(&cursor.into_inner())
+    base64::encode(cursor.into_inner())
 }
 
 pub fn normalize_path(path: &Path) -> PathBuf {
@@ -181,7 +181,7 @@ impl LabelMeData {
         let img_rel_to_json = json_path
             .parent()
             .unwrap_or_else(|| Path::new(""))
-            .join(&self.imagePath.replace('\\', "/"));
+            .join(self.imagePath.replace('\\', "/"));
         normalize_path(&img_rel_to_json)
     }
 
