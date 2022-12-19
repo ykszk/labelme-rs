@@ -1,12 +1,8 @@
-use clap::Parser;
+use clap::Args;
 use std::path::{Path, PathBuf};
-#[macro_use]
-extern crate log;
 
-/// Swap prefix of imagePath
-#[derive(Parser, Debug)]
-#[clap(name=env!("CARGO_BIN_NAME"), author, version, about, long_about = None)]
-struct Args {
+#[derive(Args, Debug)]
+pub struct SwapArgs {
     /// Input json filename or json containing directory
     input: PathBuf,
     /// New imagePath prefix
@@ -66,9 +62,8 @@ fn test_swap_prefix() {
     assert_eq!("../stem.jpg", swapped_data.imagePath);
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd_swap(args: SwapArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let args = Args::parse();
     if args.input.extension().unwrap_or_default() == "json" {
         if let Some(output) = &args.output {
             assert_eq!(

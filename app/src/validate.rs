@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::Args;
 use glob::glob;
 use labelme_rs::indexmap::{IndexMap, IndexSet};
 use labelme_rs::serde_json;
@@ -223,10 +223,8 @@ fn test_check_json() {
     );
 }
 
-/// Validate labelme annotations
-#[derive(Parser, Debug)]
-#[clap(name=env!("CARGO_BIN_NAME"), author, version, about, long_about = None)]
-struct Args {
+#[derive(Args, Debug)]
+pub struct ValidateArgs {
     /// Rules
     rules: PathBuf,
     /// Input directory
@@ -251,8 +249,7 @@ struct Args {
     threads: usize,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
+pub fn cmd_validate(args: ValidateArgs) -> Result<(), Box<dyn std::error::Error>> {
     let verbosity = args.verbose;
     let mut rules = dsl::load_rules(&args.rules)?;
     for filename in args.additional {

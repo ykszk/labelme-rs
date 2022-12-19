@@ -9,24 +9,12 @@ Check the repository (https://github.com/ykszk/image_tagging_tool) for details.
 """
 
 [[bin]]
-name = "lm2svg"
-path = "src/lm2svg.rs"
-
-[[bin]]
-name = "lms2html"
-path = "src/lms2html.rs"
-
-[[bin]]
-name = "lm_swap_prefix"
-path = "src/swap_prefix.rs"
+name = "lmrs"
+path = "src/commands.rs"
 
 [lib]
 name = "dsl"
 path = "src/dsl.rs"
-
-[[bin]]
-name = "lm_validate"
-path = "src/validate.rs"
 
 [dependencies]
 labelme-rs = { path = ".."}

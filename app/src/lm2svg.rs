@@ -1,13 +1,9 @@
-use clap::Parser;
+use clap::Args;
 use labelme_rs::image::GenericImageView;
 use std::path::PathBuf;
-#[macro_use]
-extern crate log;
 
-/// Create SVG image from a labeme annotation
-#[derive(Parser, Debug)]
-#[clap(name=env!("CARGO_BIN_NAME"), author, version, about, long_about = None)]
-struct Args {
+#[derive(Debug, Args)]
+pub struct SvgArgs {
     /// Input json filename
     input: PathBuf,
     /// Output svg filename
@@ -28,16 +24,16 @@ struct Args {
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd_svg(args: SvgArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let args = Args::parse();
     let mut json_data = labelme_rs::LabelMeData::load(&args.input)?;
     let label_colors = match args.config {
         Some(config) => load_label_colors(&config)?,
         None => LabelColorsHex::new(),
     };
 
-    let img_filename = json_data.resolve_image_path(&std::fs::canonicalize(std::path::Path::new(&args.input))?);
+    let img_filename =
+        json_data.resolve_image_path(&std::fs::canonicalize(std::path::Path::new(&args.input))?);
     let mut img = labelme_rs::image::open(&img_filename)?;
     if let Some(resize) = args.resize {
         let orig_size = img.dimensions();

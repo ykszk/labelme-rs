@@ -1,14 +1,10 @@
-use clap::Parser;
+use clap::Args;
 use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::IndexMap;
 use std::{io::BufRead, io::Write, path::Path, path::PathBuf};
-#[macro_use]
-extern crate log;
 
-/// Create HTML from labelme directory
-#[derive(Parser, Debug)]
-#[clap(name=env!("CARGO_BIN_NAME"), author, version, about, long_about = None)]
-struct Args {
+#[derive(Debug, Args)]
+pub struct HtmlArgs {
     /// Input labelme directory
     input: PathBuf,
     /// Output html filename
@@ -41,10 +37,9 @@ struct Args {
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd_html(args: HtmlArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
 
-    let args = Args::parse();
     let mut templates = tera::Tera::new("/dev/null/*")?;
     templates.autoescape_on(vec![]);
     templates.add_raw_templates(vec![
