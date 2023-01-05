@@ -1,4 +1,9 @@
 pub use chumsky::prelude::*;
+use labelme_rs::indexmap::IndexMap;
+use labelme_rs::serde_json;
+pub use labelme_rs::{FlagSet, LabelMeData, Point};
+use std::error;
+use std::fmt;
 use std::{
     fs::File,
     io::{BufRead, BufReader},
@@ -75,8 +80,7 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .or(just(">=".to_string()).to(CmpOp::GE))
             .or(just(">".to_string()).to(CmpOp::GT));
 
-        sum
-            .clone()
+        sum.clone()
             .then(cmp_op.then(sum).repeated())
             .foldl(|a, (op, b)| Expr::Cmp(Box::new(a), op, Box::new(b)))
     });
@@ -133,13 +137,224 @@ pub fn load_rules(filename: &Path) -> Result<Vec<String>, Box<dyn std::error::Er
 /// let ast = dsl::parse_rules(&vec!["a = b".into()]);
 /// assert!(ast.is_err());
 /// ```
-pub fn parse_rules(rules: &[String]) -> Result<Vec<Expr>, Box<dyn std::error::Error>> {
+pub fn parse_rules(rules: &[String]) -> Result<Vec<Expr>, String> {
     let asts: Result<Vec<_>, _> = rules.iter().map(|r| parser().parse(r.clone())).collect();
     asts.map_err(|parse_errs| {
         let errs: Vec<_> = parse_errs
             .into_iter()
             .map(|e| format!("Parse error: {}", e))
             .collect();
-        errs.join("\n").into()
+        errs.join("\n")
     })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CheckError {
+    FileNotFound,
+    InvalidJson(String),
+    EvaluatedFalse(String, (isize, isize)),
+    EvaluatedMultipleFalses(Vec<(String, (isize, isize))>),
+}
+
+impl fmt::Display for CheckError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CheckError::EvaluatedFalse(cond, (c1, c2)) => {
+                write!(f, "Unsatisfied rule; \"{}\": {} vs. {}", cond, c1, c2)
+            }
+            CheckError::EvaluatedMultipleFalses(errors) => {
+                write!(f, "Unsatisfied rules;")?;
+                let msg = errors
+                    .iter()
+                    .map(|(cond, (c1, c2))| format!(" \"{}\": {} vs. {}", cond, c1, c2))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                f.write_str(&msg)
+            }
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
+impl error::Error for CheckError {}
+
+#[derive(PartialEq, Debug)]
+pub enum CheckResult {
+    Skipped,
+    Passed,
+}
+
+pub fn check_json(
+    rules: &[String],
+    asts: &[Expr],
+    json_filename: &Path,
+    flags: &FlagSet,
+    ignores: &FlagSet,
+) -> Result<CheckResult, CheckError> {
+    let json_data: LabelMeData = serde_json::from_reader(BufReader::new(
+        File::open(json_filename).or(Err(CheckError::FileNotFound))?,
+    ))
+    .map_err(|err| CheckError::InvalidJson(format!("{}", err)))?;
+    let json_flags =
+        FlagSet::from_iter(json_data.flags.into_iter().filter_map(
+            |(k, v)| {
+                if v {
+                    Some(k)
+                } else {
+                    None
+                }
+            },
+        ));
+    if (!flags.is_empty() && json_flags.intersection(flags).count() == 0)
+        || json_flags.intersection(ignores).count() > 0
+    {
+        return Ok(CheckResult::Skipped);
+    }
+    let mut point_map: IndexMap<String, Vec<Point>> = IndexMap::new();
+    for shape in json_data.shapes.into_iter() {
+        let vec: &mut Vec<Point> = point_map.entry(shape.label).or_insert_with(Vec::new);
+        vec.push(shape.points[0]);
+    }
+    let vars: Vec<_> = point_map
+        .iter()
+        .map(|(k, v)| (k, v.len() as isize))
+        .collect();
+
+    let mut errors: Vec<_> = asts
+        .iter()
+        .zip(rules.iter())
+        .filter_map(|(ast, rule)| {
+            let result = eval(ast, &vars);
+            match result {
+                Ok(_) => None,
+                Err(vals) => Some((rule.clone(), vals)),
+            }
+        })
+        .collect();
+    if errors.is_empty() {
+        Ok(CheckResult::Passed)
+    } else if errors.len() == 1 {
+        let (rule, vals) = errors.pop().unwrap();
+        Err(CheckError::EvaluatedFalse(rule, vals))
+    } else {
+        Err(CheckError::EvaluatedMultipleFalses(errors))
+    }
+}
+
+#[test]
+fn test_check_json() {
+    use std::path::PathBuf;
+    let rule = "TL > 0".to_string();
+    let rules = vec![rule];
+    let asts = parse_rules(&rules).unwrap();
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    filename.push("tests/img1.json");
+    assert_eq!(
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
+        CheckResult::Passed,
+        "Valid rule"
+    );
+
+    let rule = "X == 0".to_string();
+    let rules = vec![rule];
+    let asts = parse_rules(&rules).unwrap();
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    filename.push("tests/img1.json");
+    assert_eq!(
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
+        CheckResult::Passed,
+        "Non-existent variable"
+    );
+
+    let rule = "TL == 0".to_string();
+    let rules = vec![rule.clone()];
+    let asts = parse_rules(&rules).unwrap();
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    filename.push("tests/img1.json");
+    assert_eq!(
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
+        CheckError::EvaluatedFalse(rule, (1, 0)),
+        "False rule"
+    );
+    let (rule1, rule2) = ("TL == 0".to_string(), "TR == 1".to_string());
+    let rules = vec![rule1.clone(), rule2.clone()];
+    let asts = parse_rules(&rules).unwrap();
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let errors = vec![(rule1, (1, 0)), (rule2, (0, 1))];
+    filename.push("tests/img1.json");
+    assert_eq!(
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
+        CheckError::EvaluatedMultipleFalses(errors),
+        "False rule"
+    );
+
+    let rule = "TL == TR".to_string();
+    let rules = vec![rule];
+    let asts = parse_rules(&rules).unwrap();
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    filename.push("tests/test.json");
+    assert_eq!(
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
+        CheckResult::Passed,
+        "Valid rule"
+    );
+    assert_eq!(
+        check_json(
+            &rules,
+            &asts,
+            &filename,
+            &FlagSet::from_iter(vec!["f1".into()]),
+            &FlagSet::new()
+        )
+        .unwrap(),
+        CheckResult::Passed,
+        "Test for a true flag"
+    );
+    assert_eq!(
+        check_json(
+            &rules,
+            &asts,
+            &filename,
+            &FlagSet::from_iter(vec!["f2".into()]),
+            &FlagSet::new()
+        )
+        .unwrap(),
+        CheckResult::Skipped,
+        "Test for a false flag"
+    );
+    assert_eq!(
+        check_json(
+            &rules,
+            &asts,
+            &filename,
+            &FlagSet::new(),
+            &FlagSet::from_iter(vec!["f1".into()])
+        )
+        .unwrap(),
+        CheckResult::Skipped,
+        "Test for ignoring flag"
+    );
+    assert_eq!(
+        check_json(
+            &rules,
+            &asts,
+            &filename,
+            &FlagSet::from_iter(vec!["fx".into()]),
+            &FlagSet::new()
+        )
+        .unwrap(),
+        CheckResult::Skipped,
+        "Test for a non-existent flag"
+    );
+
+    let rule = "TL == BL + 1".to_string();
+    let rules = vec![rule.clone()];
+    let asts = parse_rules(&rules).unwrap();
+    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    filename.push("tests/test.json");
+    assert_eq!(
+        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
+        CheckError::EvaluatedFalse(rule, (1, 2)),
+        "False rule"
+    );
 }

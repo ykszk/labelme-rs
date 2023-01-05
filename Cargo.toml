@@ -9,6 +9,7 @@ repository = "https://github.com/ykszk/labelme-rs"
 
 members = [
     "app",
+    "lmrspy",
 ]
 
 [profile.release]

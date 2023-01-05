@@ -1,227 +1,11 @@
 use clap::Args;
 use glob::glob;
-use labelme_rs::indexmap::{IndexMap, IndexSet};
-use labelme_rs::serde_json;
-use labelme_rs::{FlagSet, LabelMeData, Point};
-use std::error;
-use std::fmt;
-use std::fs::File;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use labelme_rs::indexmap::IndexSet;
+use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum CheckError {
-    FileNotFound,
-    InvalidJson,
-    EvaluatedFalse(String, (isize, isize)),
-    EvaluatedMultipleFalses(Vec<(String, (isize, isize))>),
-}
-
-impl fmt::Display for CheckError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CheckError::EvaluatedFalse(cond, (c1, c2)) => {
-                write!(f, "Unsatisfied rule; \"{}\": {} vs. {}", cond, c1, c2)
-            }
-            CheckError::EvaluatedMultipleFalses(errors) => {
-                write!(f, "Unsatisfied rules;")?;
-                let msg = errors
-                    .iter()
-                    .map(|(cond, (c1, c2))| format!(" \"{}\": {} vs. {}", cond, c1, c2))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                f.write_str(&msg)
-            }
-            _ => write!(f, "{:?}", self),
-        }
-    }
-}
-
-impl error::Error for CheckError {}
-
-#[derive(PartialEq, Debug)]
-enum CheckResult {
-    Skipped,
-    Passed,
-}
-
-fn check_json(
-    rules: &[String],
-    asts: &[dsl::Expr],
-    json_filename: &Path,
-    flags: &FlagSet,
-    ignores: &FlagSet,
-) -> Result<CheckResult, CheckError> {
-    let json_data: LabelMeData = serde_json::from_reader(BufReader::new(
-        File::open(json_filename).or(Err(CheckError::FileNotFound))?,
-    ))
-    .map_err(|_| CheckError::InvalidJson)?;
-    let json_flags =
-        FlagSet::from_iter(json_data.flags.into_iter().filter_map(
-            |(k, v)| {
-                if v {
-                    Some(k)
-                } else {
-                    None
-                }
-            },
-        ));
-    if (!flags.is_empty() && json_flags.intersection(flags).count() == 0)
-        || json_flags.intersection(ignores).count() > 0
-    {
-        return Ok(CheckResult::Skipped);
-    }
-    let mut point_map: IndexMap<String, Vec<Point>> = IndexMap::new();
-    for shape in json_data.shapes.into_iter() {
-        let vec: &mut Vec<Point> = point_map.entry(shape.label).or_insert_with(Vec::new);
-        vec.push(shape.points[0]);
-    }
-    let vars: Vec<_> = point_map
-        .iter()
-        .map(|(k, v)| (k, v.len() as isize))
-        .collect();
-
-    let mut errors: Vec<_> = asts
-        .iter()
-        .zip(rules.iter())
-        .filter_map(|(ast, rule)| {
-            let result = dsl::eval(ast, &vars);
-            match result {
-                Ok(_) => None,
-                Err(vals) => Some((rule.clone(), vals)),
-            }
-        })
-        .collect();
-    if errors.is_empty() {
-        Ok(CheckResult::Passed)
-    } else if errors.len() == 1 {
-        let (rule, vals) = errors.pop().unwrap();
-        Err(CheckError::EvaluatedFalse(rule, vals))
-    } else {
-        Err(CheckError::EvaluatedMultipleFalses(errors))
-    }
-}
-
-#[test]
-fn test_check_json() {
-    let rule = "TL > 0".to_string();
-    let rules = vec![rule];
-    let asts = dsl::parse_rules(&rules).unwrap();
-    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    filename.push("tests/img1.json");
-    assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
-        CheckResult::Passed,
-        "Valid rule"
-    );
-
-    let rule = "X == 0".to_string();
-    let rules = vec![rule];
-    let asts = dsl::parse_rules(&rules).unwrap();
-    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    filename.push("tests/img1.json");
-    assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
-        CheckResult::Passed,
-        "Non-existent variable"
-    );
-
-    let rule = "TL == 0".to_string();
-    let rules = vec![rule.clone()];
-    let asts = dsl::parse_rules(&rules).unwrap();
-    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    filename.push("tests/img1.json");
-    assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
-        CheckError::EvaluatedFalse(rule, (1, 0)),
-        "False rule"
-    );
-    let (rule1, rule2) = ("TL == 0".to_string(), "TR == 1".to_string());
-    let rules = vec![rule1.clone(), rule2.clone()];
-    let asts = dsl::parse_rules(&rules).unwrap();
-    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let errors = vec![(rule1, (1, 0)), (rule2, (0, 1))];
-    filename.push("tests/img1.json");
-    assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
-        CheckError::EvaluatedMultipleFalses(errors),
-        "False rule"
-    );
-
-    let rule = "TL == TR".to_string();
-    let rules = vec![rule];
-    let asts = dsl::parse_rules(&rules).unwrap();
-    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    filename.push("tests/test.json");
-    assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
-        CheckResult::Passed,
-        "Valid rule"
-    );
-    assert_eq!(
-        check_json(
-            &rules,
-            &asts,
-            &filename,
-            &FlagSet::from_iter(vec!["f1".into()]),
-            &FlagSet::new()
-        )
-        .unwrap(),
-        CheckResult::Passed,
-        "Test for a true flag"
-    );
-    assert_eq!(
-        check_json(
-            &rules,
-            &asts,
-            &filename,
-            &FlagSet::from_iter(vec!["f2".into()]),
-            &FlagSet::new()
-        )
-        .unwrap(),
-        CheckResult::Skipped,
-        "Test for a false flag"
-    );
-    assert_eq!(
-        check_json(
-            &rules,
-            &asts,
-            &filename,
-            &FlagSet::new(),
-            &FlagSet::from_iter(vec!["f1".into()])
-        )
-        .unwrap(),
-        CheckResult::Skipped,
-        "Test for ignoring flag"
-    );
-    assert_eq!(
-        check_json(
-            &rules,
-            &asts,
-            &filename,
-            &FlagSet::from_iter(vec!["fx".into()]),
-            &FlagSet::new()
-        )
-        .unwrap(),
-        CheckResult::Skipped,
-        "Test for a non-existent flag"
-    );
-
-    let rule = "TL == BL + 1".to_string();
-    let rules = vec![rule.clone()];
-    let asts = dsl::parse_rules(&rules).unwrap();
-    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    filename.push("tests/test.json");
-    assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
-        CheckError::EvaluatedFalse(rule, (1, 2)),
-        "False rule"
-    );
-}
 
 #[derive(Args, Debug)]
 pub struct ValidateArgs {
@@ -289,15 +73,16 @@ pub fn cmd_validate(args: ValidateArgs) -> Result<(), Box<dyn std::error::Error>
                     let entry = &file_list[i];
                     match entry {
                         Ok(path) => {
-                            let check_result = check_json(rules, asts, path, flag_set, ignore_set);
+                            let check_result =
+                                dsl::check_json(rules, asts, path, flag_set, ignore_set);
                             let disp_path = path.strip_prefix(indir).unwrap_or(path.as_path());
                             match check_result {
                                 Ok(ret) => {
-                                    if ret == CheckResult::Passed {
+                                    if ret == dsl::CheckResult::Passed {
                                         checked_count.fetch_add(1, Ordering::SeqCst);
                                         valid_count.fetch_add(1, Ordering::SeqCst);
                                     }
-                                    if verbosity > 0 && ret != CheckResult::Skipped {
+                                    if verbosity > 0 && ret != dsl::CheckResult::Skipped {
                                         println!("{},", disp_path.to_str().unwrap());
                                     }
                                 }
