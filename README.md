@@ -35,8 +35,10 @@ maturin develop --release
 ```python
 import lmrspy
 rules = ['TL==1', 'TL>0']
-validator = lmrspy.lmrspy.Validator(rules, [], [])
-validator.validate_json('labelme.json')
-# true if passed and false if skipped
-# raises exception on error
+flags = ['jsons', 'containing', 'flags', 'will', 'be', 'validated']
+ignores = ['flags', 'to', 'ignore', 'json']
+validator = lmrspy.Validator(rules, flags, ignores)
+validator.validate_json_file('labelme.json')
+# true if valid and false if skipped
+# raises exception for invalid data
 ```
