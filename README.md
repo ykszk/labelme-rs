@@ -29,7 +29,7 @@ lmrs validate app/tests/rules.txt app/tests --verbose
 
 ```console
 cd lmrspy
-maturin develop
+maturin develop --release
 ```
 
 ```python

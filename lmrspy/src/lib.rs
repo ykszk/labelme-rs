@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 
-#[pyclass]
+#[pyclass(subclass)]
 struct Validator {
     rules: Vec<String>,
     asts: Vec<dsl::Expr>,
