@@ -7,5 +7,8 @@ class Validator(_Validator):
     def __new__(cls, rules: List[str], flags: List[str], ignores: List[str]):
         return super().__new__(cls, rules, flags, ignores)
 
-    def validate_json(self, filename: Union[str, Path]):
-        return super().validate_json(filename)
+    def validate_jsons(self, json_str: str):
+        return super().validate_jsons(json_str)
+
+    def validate_json_file(self, filename: Union[str, Path]):
+        return super().validate_json_file(filename)

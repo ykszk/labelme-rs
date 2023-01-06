@@ -74,7 +74,7 @@ pub fn cmd_validate(args: ValidateArgs) -> Result<(), Box<dyn std::error::Error>
                     match entry {
                         Ok(path) => {
                             let check_result =
-                                dsl::check_json(rules, asts, path, flag_set, ignore_set);
+                                dsl::check_json_file(rules, asts, path, flag_set, ignore_set);
                             let disp_path = path.strip_prefix(indir).unwrap_or(path.as_path());
                             match check_result {
                                 Ok(ret) => {

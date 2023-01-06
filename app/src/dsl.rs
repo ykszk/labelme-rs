@@ -178,13 +178,13 @@ impl fmt::Display for CheckError {
 
 impl error::Error for CheckError {}
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum CheckResult {
     Skipped,
     Passed,
 }
 
-pub fn check_json(
+pub fn check_json_file(
     rules: &[String],
     asts: &[Expr],
     json_filename: &Path,
@@ -195,6 +195,28 @@ pub fn check_json(
         File::open(json_filename).or(Err(CheckError::FileNotFound))?,
     ))
     .map_err(|err| CheckError::InvalidJson(format!("{}", err)))?;
+    check_json(rules, asts, json_data, flags, ignores)
+}
+
+pub fn check_jsons(
+    rules: &[String],
+    asts: &[Expr],
+    json_str: &str,
+    flags: &FlagSet,
+    ignores: &FlagSet,
+) -> Result<CheckResult, CheckError> {
+    let json_data: LabelMeData = serde_json::from_str(json_str)
+        .map_err(|err| CheckError::InvalidJson(format!("{}", err)))?;
+    check_json(rules, asts, json_data, flags, ignores)
+}
+
+pub fn check_json(
+    rules: &[String],
+    asts: &[Expr],
+    json_data: LabelMeData,
+    flags: &FlagSet,
+    ignores: &FlagSet,
+) -> Result<CheckResult, CheckError> {
     let json_flags =
         FlagSet::from_iter(json_data.flags.into_iter().filter_map(
             |(k, v)| {
@@ -250,7 +272,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
+        check_json_file(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
         CheckResult::Passed,
         "Valid rule"
     );
@@ -261,7 +283,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
+        check_json_file(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
         CheckResult::Passed,
         "Non-existent variable"
     );
@@ -272,7 +294,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
+        check_json_file(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
         CheckError::EvaluatedFalse(rule, (1, 0)),
         "False rule"
     );
@@ -283,7 +305,7 @@ fn test_check_json() {
     let errors = vec![(rule1, (1, 0)), (rule2, (0, 1))];
     filename.push("tests/img1.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
+        check_json_file(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
         CheckError::EvaluatedMultipleFalses(errors),
         "False rule"
     );
@@ -294,12 +316,12 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/test.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
+        check_json_file(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap(),
         CheckResult::Passed,
         "Valid rule"
     );
     assert_eq!(
-        check_json(
+        check_json_file(
             &rules,
             &asts,
             &filename,
@@ -311,7 +333,7 @@ fn test_check_json() {
         "Test for a true flag"
     );
     assert_eq!(
-        check_json(
+        check_json_file(
             &rules,
             &asts,
             &filename,
@@ -323,7 +345,7 @@ fn test_check_json() {
         "Test for a false flag"
     );
     assert_eq!(
-        check_json(
+        check_json_file(
             &rules,
             &asts,
             &filename,
@@ -335,7 +357,7 @@ fn test_check_json() {
         "Test for ignoring flag"
     );
     assert_eq!(
-        check_json(
+        check_json_file(
             &rules,
             &asts,
             &filename,
@@ -353,7 +375,7 @@ fn test_check_json() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/test.json");
     assert_eq!(
-        check_json(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
+        check_json_file(&rules, &asts, &filename, &FlagSet::new(), &FlagSet::new()).unwrap_err(),
         CheckError::EvaluatedFalse(rule, (1, 2)),
         "False rule"
     );

@@ -44,9 +44,27 @@ impl Validator {
         ))
     }
 
+    fn validate_jsons(&self, json_str: &str) -> PyResult<bool> {
+        let check_result = dsl::check_jsons(
+            &self.rules,
+            &self.asts,
+            json_str,
+            &self.flags,
+            &self.ignores,
+        );
+        let result = match check_result {
+            Ok(result) => Ok(result == dsl::CheckResult::Passed),
+            Err(err) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "NG : {}",
+                err
+            ))),
+        }?;
+        Ok(result)
+    }
+
     fn validate_json(&self, filename: &str) -> PyResult<bool> {
         let filename = std::path::PathBuf::from(filename);
-        let check_result = dsl::check_json(
+        let check_result = dsl::check_json_file(
             &self.rules,
             &self.asts,
             &filename,
