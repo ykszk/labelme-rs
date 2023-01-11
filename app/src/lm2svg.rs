@@ -26,7 +26,7 @@ use labelme_rs::{load_label_colors, LabelColorsHex};
 
 pub fn cmd_svg(args: SvgArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let mut json_data = labelme_rs::LabelMeData::load(&args.input)?;
+    let mut json_data = labelme_rs::LabelMeData::try_from(args.input.as_path())?;
     let label_colors = match args.config {
         Some(config) => load_label_colors(&config)?,
         None => LabelColorsHex::new(),

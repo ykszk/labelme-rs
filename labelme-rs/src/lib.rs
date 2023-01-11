@@ -126,6 +126,7 @@ impl LabelMeData {
         self.imageHeight = (self.imageHeight as f64 * scale) as _;
     }
 
+    #[deprecated(since = "0.5.0", note = "Use from(path: &Path)")]
     pub fn load(filename: &Path) -> Result<Self, Box<dyn Error>> {
         Ok(serde_json::from_reader(BufReader::new(File::open(
             filename,
@@ -316,6 +317,23 @@ impl LabelMeData {
             }
         }
         Ok(document)
+    }
+}
+
+impl TryFrom<&str> for LabelMeData {
+    type Error = serde_json::Error;
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        serde_json::from_str(s)
+    }
+}
+
+impl TryFrom<&Path> for LabelMeData {
+    type Error = Box<dyn Error>;
+    fn try_from(filename: &Path) -> Result<Self, Self::Error> {
+        // It's faster to use `from_str` than to use `from_reader`
+        // https://github.com/serde-rs/json/issues/160
+        let s = std::fs::read_to_string(filename)?;
+        Ok(s.as_str().try_into()?)
     }
 }
 

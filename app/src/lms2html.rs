@@ -78,7 +78,7 @@ pub fn cmd_html(args: HtmlArgs) -> Result<(), Box<dyn std::error::Error>> {
     let mut svgs: Vec<String> = Vec::new();
     for entry in entries {
         let input = entry?;
-        let mut json_data = labelme_rs::LabelMeData::load(&input)?;
+        let mut json_data = labelme_rs::LabelMeData::try_from(input.as_path())?;
 
         let img_filename = if let Some(image_dir) = &args.image_dir {
             let filename = Path::new(&json_data.imagePath).file_name().unwrap();

@@ -1,5 +1,8 @@
 use clap::Args;
-use std::path::{Path, PathBuf};
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 #[derive(Args, Debug)]
 pub struct SwapArgs {
@@ -12,11 +15,9 @@ pub struct SwapArgs {
 }
 
 fn swap_prefix(
-    input: &Path,
     prefix: &str,
-    output: Option<&Path>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut json_data = labelme_rs::LabelMeData::load(input)?;
+    mut json_data: labelme_rs::LabelMeData,
+) -> Result<labelme_rs::LabelMeData, Box<dyn std::error::Error>> {
     let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
     let new_image_path = format!(
         "{}/{}",
@@ -28,8 +29,27 @@ fn swap_prefix(
             .unwrap()
     );
     json_data.imagePath = new_image_path;
-    let output = output.unwrap_or(input);
-    json_data.save(output)?;
+    Ok(json_data)
+}
+
+fn swap_prefix_file(
+    input: &Path,
+    prefix: &str,
+    output: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut json_data = if input.as_os_str() == std::ffi::OsStr::new("-") {
+        let mut buffer = String::new();
+        std::io::stdin().read_to_string(&mut buffer)?;
+        labelme_rs::LabelMeData::try_from(buffer.as_str())?
+    } else {
+        labelme_rs::LabelMeData::try_from(input)?
+    };
+    json_data = swap_prefix(prefix, json_data)?;
+    if input.as_os_str() == std::ffi::OsStr::new("-") {
+        println!("{}", labelme_rs::serde_json::to_string_pretty(&json_data)?);
+    } else {
+        json_data.save(output)?;
+    }
     Ok(())
 }
 
@@ -38,16 +58,16 @@ fn test_swap_prefix() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
     println!("{:?}", filename);
-    let original_data = labelme_rs::LabelMeData::load(&filename).unwrap();
+    let original_data = labelme_rs::LabelMeData::try_from(filename.as_path()).unwrap();
     let output_filename = PathBuf::from("tests/output/img1_swapped.json");
-    assert!(swap_prefix(&filename, "..", Some(&output_filename),).is_ok());
-    let swapped_data = labelme_rs::LabelMeData::load(&output_filename).unwrap();
+    assert!(swap_prefix_file(&filename, "..", &output_filename).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
     );
-    assert!(swap_prefix(&filename, "../", Some(&output_filename),).is_ok());
-    let swapped_data = labelme_rs::LabelMeData::load(&output_filename).unwrap();
+    assert!(swap_prefix_file(&filename, "../", &output_filename).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
@@ -57,32 +77,22 @@ fn test_swap_prefix() {
     filename.push("tests/backslash.json");
     println!("{:?}", filename);
     let output_filename = PathBuf::from("tests/output/img1_swapped.json");
-    assert!(swap_prefix(&filename, "..", Some(&output_filename),).is_ok());
-    let swapped_data = labelme_rs::LabelMeData::load(&output_filename).unwrap();
+    assert!(swap_prefix_file(&filename, "..", &output_filename).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!("../stem.jpg", swapped_data.imagePath);
 }
 
 pub fn cmd_swap(args: SwapArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    if args.input.extension().unwrap_or_default() == "json" {
-        if let Some(output) = &args.output {
-            assert_eq!(
-                output.extension().unwrap_or_default(),
-                "json",
-                "Output needs to be a json when input is a json"
-            )
+    let output = args.output.unwrap_or_else(|| args.input.clone());
+    if args.input.is_dir() {
+        if !output.exists() {
+            eprintln!("Output directory does not exist.");
         };
-        info!("Process single file");
-        swap_prefix(&args.input, &args.prefix, args.output.as_deref())
-    } else {
-        if let Some(output) = &args.output {
-            assert!(output.exists(), "Output does not exist");
-            assert!(
-                output.is_dir(),
-                "Output needs to be a directory when input is a directory"
-            );
-        };
-        info!("Process a directory");
+        if !output.is_dir() {
+            eprintln!("Existing file found: directory output is required for directory input.");
+        }
+        debug!("Process a directory");
         let entries: Vec<_> = glob::glob(args.input.join("*.json").to_str().unwrap())
             .expect("Failed to read glob pattern")
             .collect();
@@ -93,10 +103,14 @@ pub fn cmd_swap(args: SwapArgs) -> Result<(), Box<dyn std::error::Error>> {
         );
         for entry in entries {
             let input = entry?;
-            swap_prefix(&input, &args.prefix, args.output.as_deref())?;
+            swap_prefix_file(&input, &args.prefix, &output)?;
             bar.inc(1);
         }
         bar.finish();
         Ok(())
+    } else {
+        // json file or '-'
+        debug!("Process single file");
+        swap_prefix_file(&args.input, &args.prefix, &output)
     }
 }
