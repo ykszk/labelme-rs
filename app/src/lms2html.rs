@@ -51,9 +51,18 @@ pub fn cmd_html(args: HtmlArgs) -> Result<(), Box<dyn std::error::Error>> {
             include_str!("templates/tag_checkbox.html"),
         ),
     ])?;
+    if !args.input.exists() {
+        return Err(format!("Input {:?} not found.", args.input).into());
+    }
+    if args.input.is_file() {
+        return Err(format!("Input {:?} is not a directory.", args.input).into());
+    }
     let entries: Vec<_> = glob::glob(args.input.join("*.json").to_str().unwrap())
         .expect("Failed to read glob pattern")
         .collect();
+    if entries.is_empty() {
+        return Err("No json file found.".into());
+    }
     let bar = indicatif::ProgressBar::new(entries.len() as _);
     bar.set_style(
         indicatif::ProgressStyle::default_bar()
