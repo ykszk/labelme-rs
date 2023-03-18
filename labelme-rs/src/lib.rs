@@ -338,15 +338,11 @@ impl TryFrom<&Path> for LabelMeData {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-}
+pub struct Color(u8, u8, u8);
 
 impl Color {
     pub fn to_hex(&self) -> String {
-        format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
+        format!("#{:02X}{:02X}{:02X}", self.0, self.1, self.2)
     }
 }
 
