@@ -87,12 +87,19 @@ pub fn cmd_swap(args: SwapArgs) -> Result<(), Box<dyn std::error::Error>> {
     let output = args.output.unwrap_or_else(|| args.input.clone());
     if args.input.is_dir() {
         if !output.exists() {
-            eprintln!("Output directory does not exist.");
+            return Err(format!(
+                "Output directory \"{}\" does not exist.",
+                output.to_string_lossy()
+            )
+            .into());
         };
         if !output.is_dir() {
-            eprintln!("Existing file found: directory output is required for directory input.");
+            return Err(format!(
+                "Existing file \"{}\" found: directory output is required for directory input.",
+                output.to_string_lossy()
+            )
+            .into());
         }
-        debug!("Process a directory");
         let entries: Vec<_> = glob::glob(args.input.join("*.json").to_str().unwrap())
             .expect("Failed to read glob pattern")
             .collect();
@@ -103,6 +110,7 @@ pub fn cmd_swap(args: SwapArgs) -> Result<(), Box<dyn std::error::Error>> {
         );
         for entry in entries {
             let input = entry?;
+            let output = output.clone().join(input.file_name().unwrap());
             swap_prefix_file(&input, &args.prefix, &output)?;
             bar.inc(1);
         }

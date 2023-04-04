@@ -52,10 +52,10 @@ pub fn cmd_html(args: HtmlArgs) -> Result<(), Box<dyn std::error::Error>> {
         ),
     ])?;
     if !args.input.exists() {
-        return Err(format!("Input {:?} not found.", args.input).into());
+        return Err(format!("Input {} not found.", args.input.to_string_lossy()).into());
     }
     if args.input.is_file() {
-        return Err(format!("Input {:?} is not a directory.", args.input).into());
+        return Err(format!("Input {} is not a directory.", args.input.to_string_lossy()).into());
     }
     let entries: Vec<_> = glob::glob(args.input.join("*.json").to_str().unwrap())
         .expect("Failed to read glob pattern")
