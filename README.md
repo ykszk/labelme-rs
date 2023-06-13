@@ -25,6 +25,28 @@ Validate the number of annotations based on the given rules.
 lmrs validate app/tests/rules.txt app/tests --verbose
 ```
 
+## jsonl
+Create a jsonl file from a json file containing directory.
+`filename` key is added to each json to make this process invertible.
+
+```console
+lmrs jsonl json_directory/ > jsons.jsonl
+```
+
+## split
+Invert `lmrs jsonl` process.
+i.e. split jsonl file into json files using `filename` values as filenames.
+
+Simple use:
+```console
+lmrs data.jsonl -o outdir
+```
+
+Use with filtering:
+```console
+lmrs jsonl json_indir | jq -c 'select(.is_good)' | lmrs split -o json_outdir
+```
+
 # Python binding
 
 ```console

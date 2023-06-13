@@ -12,6 +12,8 @@ mod lm2svg;
 mod lms2html;
 mod swap_prefix;
 mod validate;
+mod jsonl;
+mod split_jsonl;
 
 #[derive(Subcommand)]
 enum Command {
@@ -23,6 +25,10 @@ enum Command {
     Validate(validate::ValidateArgs),
     /// Swap prefix of imagePath
     Swap(swap_prefix::SwapArgs),
+    /// Concat json files with `filename` key added into jsonl file
+    Jsonl(jsonl::CmdArgs),
+    /// Split jsonl into json files
+    Split(split_jsonl::CmdArgs),
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,5 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Svg(args) => lm2svg::cmd_svg(args),
         Command::Validate(args) => validate::cmd_validate(args),
         Command::Swap(args) => swap_prefix::cmd_swap(args),
+        Command::Jsonl(args) => jsonl::cmd_jsonl(args),
+        Command::Split(args) => split_jsonl::cmd(args),
     }
 }
