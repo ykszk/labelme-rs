@@ -39,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "app"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "chumsky",
  "clap",
@@ -440,7 +440,7 @@ checksum = "bc0000e42512c92e31c2252315bda326620a4e034105e900c98ec492fa077b3e"
 
 [[package]]
 name = "labelme-rs"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "image",
@@ -465,7 +465,7 @@ checksum = "f92be4933c13fd498862a9e02a3055f8a8d9c039ce33db97306fd5a6caa7f29b"
 
 [[package]]
 name = "lmrspy"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "app",
  "labelme-rs",
