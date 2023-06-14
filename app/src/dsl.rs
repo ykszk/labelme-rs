@@ -125,7 +125,7 @@ pub fn eval<'a>(expr: &'a Expr, vars: &Vec<(&'a String, isize)>) -> Result<isize
 pub fn load_rules(filename: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let rules: Vec<String> = BufReader::new(File::open(filename)?)
         .lines()
-        .filter_map(|l| l.ok())
+        .map_while(Result::ok)
         .collect();
     Ok(rules)
 }
