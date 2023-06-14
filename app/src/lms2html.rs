@@ -4,7 +4,7 @@ use labelme_rs::indexmap::IndexMap;
 use std::{io::BufRead, io::Write, path::Path, path::PathBuf};
 
 #[derive(Debug, Args)]
-pub struct HtmlArgs {
+pub struct CmdArgs {
     /// Input labelme directory
     input: PathBuf,
     /// Output html filename
@@ -37,7 +37,7 @@ pub struct HtmlArgs {
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
 
-pub fn cmd_html(args: HtmlArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
 
     let mut templates = tera::Tera::default();

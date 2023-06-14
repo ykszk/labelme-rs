@@ -3,7 +3,7 @@ use labelme_rs::image::GenericImageView;
 use std::path::PathBuf;
 
 #[derive(Debug, Args)]
-pub struct SvgArgs {
+pub struct CmdArgs {
     /// Input json filename
     input: PathBuf,
     /// Output svg filename
@@ -24,7 +24,7 @@ pub struct SvgArgs {
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
 
-pub fn cmd_svg(args: SvgArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let mut json_data = labelme_rs::LabelMeData::try_from(args.input.as_path())?;
     let label_colors = match args.config {

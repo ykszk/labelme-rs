@@ -8,7 +8,7 @@ use std::sync::{
 };
 
 #[derive(Args, Debug)]
-pub struct ValidateArgs {
+pub struct CmdArgs {
     /// Rules
     rules: PathBuf,
     /// Input directory
@@ -33,7 +33,7 @@ pub struct ValidateArgs {
     threads: usize,
 }
 
-pub fn cmd_validate(args: ValidateArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     let verbosity = args.verbose;
     let mut rules = dsl::load_rules(&args.rules)?;
     for filename in args.additional {

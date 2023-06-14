@@ -18,13 +18,13 @@ mod split_jsonl;
 #[derive(Subcommand)]
 enum Command {
     /// Create HTML from a labelme directory
-    Html(lms2html::HtmlArgs),
+    Html(lms2html::CmdArgs),
     /// Create SVG image from a labeme annotation (json)
-    Svg(lm2svg::SvgArgs),
+    Svg(lm2svg::CmdArgs),
     /// Validate labelme annotations
-    Validate(validate::ValidateArgs),
+    Validate(validate::CmdArgs),
     /// Swap prefix of imagePath
-    Swap(swap_prefix::SwapArgs),
+    Swap(swap_prefix::CmdArgs),
     /// Concat json files with `filename` key added into jsonl file
     Jsonl(jsonl::CmdArgs),
     /// Split jsonl into json files
@@ -34,10 +34,10 @@ enum Command {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Html(args) => lms2html::cmd_html(args),
-        Command::Svg(args) => lm2svg::cmd_svg(args),
-        Command::Validate(args) => validate::cmd_validate(args),
-        Command::Swap(args) => swap_prefix::cmd_swap(args),
+        Command::Html(args) => lms2html::cmd(args),
+        Command::Svg(args) => lm2svg::cmd(args),
+        Command::Validate(args) => validate::cmd(args),
+        Command::Swap(args) => swap_prefix::cmd(args),
         Command::Jsonl(args) => jsonl::cmd_jsonl(args),
         Command::Split(args) => split_jsonl::cmd(args),
     }

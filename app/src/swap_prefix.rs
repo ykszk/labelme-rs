@@ -5,7 +5,7 @@ use std::{
 };
 
 #[derive(Args, Debug)]
-pub struct SwapArgs {
+pub struct CmdArgs {
     /// Input json filename or json containing directory
     input: PathBuf,
     /// New imagePath prefix
@@ -82,7 +82,7 @@ fn test_swap_prefix() {
     assert_eq!("../stem.jpg", swapped_data.imagePath);
 }
 
-pub fn cmd_swap(args: SwapArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let output = args.output.unwrap_or_else(|| args.input.clone());
     if args.input.is_dir() {
