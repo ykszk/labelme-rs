@@ -1,10 +1,26 @@
 Utility tools for labelme json files
 
+# Install
+Download pre-built binary from [Releases](https://github.com/ykszk/labelme-rs/releases) page.
+
+Or compile from the source code:
 ```console
-lmrs <COMMAND>
+cargo install --git https://github.com/ykszk/labelme-rs
+```
+
+# Usage
+
+Invoke commands like so:
+```console
+lmrs <COMMAND> [args and options]
 ```
 
 # Commands
+Use
+```console
+lmrs <COMMAND> --help
+```
+to see help in full detail.
 
 ## swap
 Add/Swap imagePath's prefix.
@@ -26,8 +42,9 @@ lmrs validate app/tests/rules.txt app/tests --verbose
 ```
 
 ## jsonl
-Create a jsonl file from a json file containing directory.
+Output jsons line by line (jsonl) from given directory containing json files.
 `filename` key is added to each json to make this process invertible.
+Use `split` command to invert.
 
 ```console
 lmrs jsonl json_directory/ > jsons.jsonl
