@@ -104,12 +104,14 @@ impl LabelMeData {
     }
 
     /// Convert to a shape_type-centered map with a structure map\[shape_type\]\[label\] -> points
-    pub fn to_shape_map(self) -> IndexMap<String, IndexMap<String, Vec<Vec<Point>>>> {
+    pub fn to_shape_map<'a>(&'a self) -> IndexMap<String, IndexMap<String, Vec<&'a Vec<Point>>>> {
         let mut map = IndexMap::new();
-        for shape in self.shapes {
-            let m = map.entry(shape.shape_type).or_insert_with(IndexMap::new);
-            let v = m.entry(shape.label).or_insert_with(Vec::new);
-            v.push(shape.points);
+        for shape in self.shapes.iter() {
+            let m = map
+                .entry(shape.shape_type.clone()) // TODO: avoid cloning
+                .or_insert_with(IndexMap::new);
+            let v = m.entry(shape.label.clone()).or_insert_with(Vec::new); // TODO: avoid cloning
+            v.push(&shape.points);
         }
         map
     }
@@ -210,7 +212,7 @@ impl LabelMeData {
     }
 
     pub fn to_svg(
-        self,
+        &self,
         label_colors: &LabelColorsHex,
         point_radius: usize,
         line_width: usize,

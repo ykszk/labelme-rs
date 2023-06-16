@@ -21,6 +21,9 @@ pub enum Expr {
     Mul(Box<Expr>, Box<Expr>),
     Cmp(Box<Expr>, CmpOp, Box<Expr>),
 }
+use regex::Regex;
+#[macro_use]
+extern crate lazy_static;
 
 #[derive(Clone, Debug)]
 pub enum CmpOp {
@@ -260,6 +263,41 @@ pub fn check_json(
         Err(CheckError::EvaluatedFalse(rule, vals))
     } else {
         Err(CheckError::EvaluatedMultipleFalses(errors))
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ResizeParam {
+    Percentage(f64),
+    Size(u32, u32),
+}
+
+lazy_static! {
+    static ref RE_PERCENT: Regex = Regex::new(r"^(\d+)%$").unwrap();
+    static ref RE_SIZE: Regex = Regex::new(r"^(\d+)x(\d+)$").unwrap();
+}
+
+impl TryFrom<&str> for ResizeParam {
+    type Error = Box<dyn std::error::Error>;
+
+    /// Parse resize parameter
+    /// ```
+    /// assert_eq!(dsl::ResizeParam::try_from("33%").unwrap(), dsl::ResizeParam::Percentage(0.33));
+    /// assert_eq!(dsl::ResizeParam::try_from("300x400").unwrap(), dsl::ResizeParam::Size(300, 400));
+    /// ```
+    fn try_from(param: &str) -> Result<Self, Self::Error> {
+        if let Some(cap) = RE_PERCENT.captures(param) {
+            let p: f64 = cap.get(1).unwrap().as_str().parse::<u8>()? as f64 / 100.0;
+            return Ok(ResizeParam::Percentage(p));
+        } else {
+            if let Some(cap) = RE_SIZE.captures(param) {
+                let w: u32 = cap.get(1).unwrap().as_str().parse()?;
+                let h: u32 = cap.get(2).unwrap().as_str().parse()?;
+                return Ok(ResizeParam::Size(w, h));
+            } else {
+                return Err(format!("{} is invalid resize argument", param).into());
+            }
+        }
     }
 }
 

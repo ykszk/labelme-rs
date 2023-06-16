@@ -47,6 +47,7 @@ dependencies = [
  "glob",
  "indicatif",
  "labelme-rs",
+ "lazy_static",
  "libc",
  "log",
  "num_cpus",
