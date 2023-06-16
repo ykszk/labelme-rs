@@ -1,11 +1,15 @@
 use clap::Args;
 use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::IndexMap;
-use std::{io::BufRead, io::Write, path::Path, path::PathBuf};
+use labelme_rs::serde_json;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Args)]
 pub struct CmdArgs {
-    /// Input labelme directory
+    /// Input labelme directory or jsonl with `filename` data (e.g. output of `lmrs jsonl`).
+    /// Specify "-" to use stdin as input
     input: PathBuf,
     /// Output html filename
     output: PathBuf,
@@ -51,15 +55,41 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             include_str!("templates/tag_checkbox.html"),
         ),
     ])?;
-    if !args.input.exists() {
-        return Err(format!("Input {} not found.", args.input.to_string_lossy()).into());
-    }
-    if args.input.is_file() {
-        return Err(format!("Input {} is not a directory.", args.input.to_string_lossy()).into());
-    }
-    let entries: Vec<_> = glob::glob(args.input.join("*.json").to_str().unwrap())
-        .expect("Failed to read glob pattern")
-        .collect();
+    let entries: Vec<(PathBuf, Box<labelme_rs::LabelMeData>)> = if args.input.is_dir() {
+        let entries: Result<Vec<_>, Box<dyn std::error::Error>> =
+            glob::glob(args.input.join("*.json").to_str().unwrap())
+                .expect("Failed to read glob pattern")
+                .map(|entry| {
+                    let entry = entry?;
+                    let json_data = labelme_rs::LabelMeData::try_from(entry.as_path())?;
+                    Ok((entry, Box::new(json_data)))
+                })
+                .collect();
+        entries?
+    } else {
+        let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
+            let reader = Box::new(BufReader::new(std::io::stdin()));
+            reader
+        } else {
+            Box::new(BufReader::new(File::open(&args.input).unwrap()))
+        };
+        let mut entries: Vec<_> = Vec::new();
+        for line in reader.lines() {
+            let line = line?;
+            let mut json_data: serde_json::Map<String, serde_json::Value> =
+                serde_json::from_str(&line).unwrap();
+            let v_filename = json_data
+                .remove("filename")
+                .ok_or_else(|| format!("Key '{}' not found", "filename"))?;
+            let filename = match v_filename {
+                serde_json::Value::String(s) => s,
+                _ => panic!("expected String"),
+            };
+            let json_data = labelme_rs::LabelMeData::try_from(line.as_str())?;
+            entries.push((filename.into(), Box::new(json_data)))
+        }
+        entries
+    };
     if entries.is_empty() {
         return Err("No json file found.".into());
     }
@@ -84,13 +114,14 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
         None => IndexMap::new(),
     };
-    let mut svgs: Vec<String> = Vec::new();
-    for entry in entries {
-        let input = entry?;
-        let mut json_data = labelme_rs::LabelMeData::try_from(input.as_path())?;
+    let mut svgs: Vec<String> = Vec::with_capacity(entries.len());
+    for entry in entries.into_iter() {
+        let input = entry.0;
+        let mut json_data = entry.1;
 
         let img_filename = if let Some(image_dir) = &args.image_dir {
-            let filename = Path::new(&json_data.imagePath).file_name().unwrap();
+            let image_path = json_data.imagePath.replace("\\", "/");
+            let filename = Path::new(&image_path).file_name().unwrap();
             image_dir.join(filename)
         } else {
             json_data.resolve_image_path(&std::fs::canonicalize(&input)?)
