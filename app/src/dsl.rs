@@ -1,7 +1,9 @@
 pub use chumsky::prelude::*;
+use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::IndexMap;
 use labelme_rs::serde_json;
 pub use labelme_rs::{FlagSet, LabelMeData, Point};
+use regex::Regex;
 use std::error;
 use std::fmt;
 use std::{
@@ -9,6 +11,8 @@ use std::{
     io::{BufRead, BufReader},
     path::Path,
 };
+#[macro_use]
+extern crate lazy_static;
 
 #[derive(Clone, Debug)]
 pub enum Expr {
@@ -21,9 +25,6 @@ pub enum Expr {
     Mul(Box<Expr>, Box<Expr>),
     Cmp(Box<Expr>, CmpOp, Box<Expr>),
 }
-use regex::Regex;
-#[macro_use]
-extern crate lazy_static;
 
 #[derive(Clone, Debug)]
 pub enum CmpOp {
@@ -279,6 +280,7 @@ impl TryFrom<&str> for ResizeParam {
     /// ```
     /// assert_eq!(dsl::ResizeParam::try_from("33%").unwrap(), dsl::ResizeParam::Percentage(0.33));
     /// assert_eq!(dsl::ResizeParam::try_from("300x400").unwrap(), dsl::ResizeParam::Size(300, 400));
+    /// assert!(dsl::ResizeParam::try_from("300x400!").is_err()); // Flags `!><^%@` etc. are not supported.
     /// ```
     fn try_from(param: &str) -> Result<Self, Self::Error> {
         if let Some(cap) = RE_PERCENT.captures(param) {
@@ -290,6 +292,18 @@ impl TryFrom<&str> for ResizeParam {
             Ok(ResizeParam::Size(w, h))
         } else {
             Err(format!("{param} is invalid resize argument").into())
+        }
+    }
+}
+
+impl ResizeParam {
+    pub fn resize(&self, img: &labelme_rs::image::DynamicImage) -> labelme_rs::image::DynamicImage {
+        match self {
+            ResizeParam::Percentage(p) => img.thumbnail(
+                (p * img.dimensions().0 as f64) as u32,
+                (p * img.dimensions().1 as f64) as u32,
+            ),
+            ResizeParam::Size(w, h) => img.thumbnail(*w, *h),
         }
     }
 }

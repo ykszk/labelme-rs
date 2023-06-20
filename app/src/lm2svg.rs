@@ -36,29 +36,9 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         json_data.resolve_image_path(&std::fs::canonicalize(std::path::Path::new(&args.input))?);
     let mut img = labelme_rs::image::open(img_filename)?;
     if let Some(resize) = args.resize {
+        let resize_param = dsl::ResizeParam::try_from(resize.as_str())?;
         let orig_size = img.dimensions();
-        let re = regex::Regex::new(r"^(\d+)%$")?;
-        if let Some(cap) = re.captures(&resize) {
-            let p: f64 = cap.get(1).unwrap().as_str().parse::<u8>()? as f64 / 100.0;
-            img = img.thumbnail(
-                (p * img.dimensions().0 as f64) as u32,
-                (p * img.dimensions().1 as f64) as u32,
-            );
-        } else {
-            let re = regex::Regex::new(r"^(\d+)x(\d+)$")?;
-            if let Some(cap) = re.captures(&resize) {
-                let w: u32 = cap.get(1).unwrap().as_str().parse()?;
-                let h: u32 = cap.get(2).unwrap().as_str().parse()?;
-                img = img.thumbnail(w, h);
-            } else {
-                return Err(format!("{resize} is invalid resize argument").into());
-            }
-        };
-        info!(
-            "Image is resized to {} x {}",
-            img.dimensions().0,
-            img.dimensions().1
-        );
+        img = resize_param.resize(&img);
         let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
         if (scale - 1.0).abs() > f64::EPSILON {
             info!("Points are scaled by {}", scale);

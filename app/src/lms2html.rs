@@ -215,10 +215,10 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             }));
         }
         for handle in handles {
-            let val: Result<_, String> = handle.join().unwrap();
-            let mut val = val.unwrap();
-            svgs.append(&mut val.0);
-            for (flag, checked) in val.1.iter() {
+            let svgs_all_tags: Result<_, String> = handle.join().unwrap();
+            let mut svgs_all_tags = svgs_all_tags.unwrap();
+            svgs.append(&mut svgs_all_tags.0);
+            for (flag, checked) in svgs_all_tags.1.iter() {
                 if *checked {
                     *all_tags.entry(flag.into()).or_insert(true) = true;
                 }
