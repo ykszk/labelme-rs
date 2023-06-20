@@ -104,7 +104,7 @@ impl LabelMeData {
     }
 
     /// Convert to a shape_type-centered map with a structure map\[shape_type\]\[label\] -> points
-    pub fn to_shape_map<'a>(&'a self) -> IndexMap<String, IndexMap<String, Vec<&'a Vec<Point>>>> {
+    pub fn to_shape_map(&self) -> IndexMap<String, IndexMap<String, Vec<&Vec<Point>>>> {
         let mut map = IndexMap::new();
         for shape in self.shapes.iter() {
             let m = map

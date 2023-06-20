@@ -288,15 +288,13 @@ impl TryFrom<&str> for ResizeParam {
     fn try_from(param: &str) -> Result<Self, Self::Error> {
         if let Some(cap) = RE_PERCENT.captures(param) {
             let p: f64 = cap.get(1).unwrap().as_str().parse::<u8>()? as f64 / 100.0;
-            return Ok(ResizeParam::Percentage(p));
+            Ok(ResizeParam::Percentage(p))
+        } else if let Some(cap) = RE_SIZE.captures(param) {
+            let w: u32 = cap.get(1).unwrap().as_str().parse()?;
+            let h: u32 = cap.get(2).unwrap().as_str().parse()?;
+            Ok(ResizeParam::Size(w, h))
         } else {
-            if let Some(cap) = RE_SIZE.captures(param) {
-                let w: u32 = cap.get(1).unwrap().as_str().parse()?;
-                let h: u32 = cap.get(2).unwrap().as_str().parse()?;
-                return Ok(ResizeParam::Size(w, h));
-            } else {
-                return Err(format!("{} is invalid resize argument", param).into());
-            }
+            Err(format!("{} is invalid resize argument", param).into())
         }
     }
 }

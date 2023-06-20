@@ -76,8 +76,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         entries?
     } else {
         let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
-            let reader = Box::new(BufReader::new(std::io::stdin()));
-            reader
+            Box::new(BufReader::new(std::io::stdin()))
         } else {
             Box::new(BufReader::new(File::open(&args.input).unwrap()))
         };
@@ -135,12 +134,12 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             handles.push(scope.spawn(|| {
                 let mut svgs: Vec<String> = Vec::with_capacity(chunk.len());
                 let mut all_tags: IndexMap<String, bool> = IndexMap::new();
-                for entry in chunk.into_iter() {
+                for entry in chunk.iter_mut() {
                     let input = &mut entry.0;
                     let json_data = &mut entry.1;
 
                     let img_filename = if let Some(image_dir) = &args.image_dir {
-                        let image_path = json_data.imagePath.replace("\\", "/");
+                        let image_path = json_data.imagePath.replace('\\', "/");
                         let filename = Path::new(&image_path).file_name().unwrap();
                         image_dir.join(filename)
                     } else {
