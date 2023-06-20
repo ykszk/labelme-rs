@@ -50,7 +50,7 @@ pub fn cmd_jsonl(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             .into());
         }
         let line = serde_json::to_string(&json_data)?;
-        println!("{}", line);
+        println!("{line}");
     }
     Ok(())
 }

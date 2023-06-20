@@ -57,7 +57,7 @@ fn swap_prefix_file(
 fn test_swap_prefix() {
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
-    println!("{:?}", filename);
+    println!("{filename:?}");
     let original_data = labelme_rs::LabelMeData::try_from(filename.as_path()).unwrap();
     let output_filename = PathBuf::from("tests/output/img1_swapped.json");
     assert!(swap_prefix_file(&filename, "..", &output_filename).is_ok());
@@ -75,7 +75,7 @@ fn test_swap_prefix() {
 
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/backslash.json");
-    println!("{:?}", filename);
+    println!("{filename:?}");
     let output_filename = PathBuf::from("tests/output/img1_swapped.json");
     assert!(swap_prefix_file(&filename, "..", &output_filename).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();

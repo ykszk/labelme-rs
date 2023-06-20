@@ -88,12 +88,9 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             let v_filename = json_data
                 .remove("filename")
                 .ok_or_else(|| format!("Key '{}' not found", "filename"))?;
-            let filename = match v_filename {
-                serde_json::Value::String(s) => s,
-                _ => panic!("expected String"),
-            };
+            let serde_json::Value::String(filename) = v_filename else {panic!("expected String")};
             let json_data = labelme_rs::LabelMeData::try_from(line.as_str())?;
-            entries.push((filename.into(), Box::new(json_data)))
+            entries.push((filename.into(), Box::new(json_data)));
         }
         entries
     };
@@ -113,12 +110,11 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     let mut all_tags: IndexMap<String, bool> = match args.flags {
         Some(filename) => {
             let buff_reader = std::io::BufReader::new(std::fs::File::open(filename)?);
-            IndexMap::from_iter(
-                buff_reader
-                    .lines()
-                    .map(|l| l.expect("Could not parse line"))
-                    .map(|e| (e, false)),
-            )
+            buff_reader
+                .lines()
+                .map(|l| l.expect("Could not parse line"))
+                .map(|e| (e, false))
+                .collect()
         }
         None => IndexMap::new(),
     };
@@ -143,7 +139,9 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                         let filename = Path::new(&image_path).file_name().unwrap();
                         image_dir.join(filename)
                     } else {
-                        json_data.resolve_image_path(&std::fs::canonicalize(&input).expect("Failed to resolve image path"))
+                        json_data.resolve_image_path(
+                            &std::fs::canonicalize(&input).expect("Failed to resolve image path"),
+                        )
                     };
                     let mut img = labelme_rs::image::open(&img_filename).unwrap_or_else(|_| {
                         panic!(
@@ -171,7 +169,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                                 img.dimensions().1
                             );
                             let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
-                            if scale != 1.0 {
+                            if (scale - 1.0).abs() > f64::EPSILON {
                                 info!("Points are scaled by {}", scale);
                                 json_data.scale(scale);
                             }
@@ -194,7 +192,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                     let label_counts = json_data.clone().count_labels();
                     let title = label_counts
                         .iter()
-                        .map(|(k, v)| format!("{}:{}", k, v))
+                        .map(|(k, v)| format!("{k}:{v}"))
                         .collect::<Vec<_>>()
                         .join("\n");
                     let document = json_data
@@ -216,7 +214,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                 Ok((svgs, all_tags))
             }));
         }
-        for handle in handles.into_iter() {
+        for handle in handles {
             let val: Result<_, String> = handle.join().unwrap();
             let mut val = val.unwrap();
             svgs.append(&mut val.0);

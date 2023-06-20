@@ -51,7 +51,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                 let h: u32 = cap.get(2).unwrap().as_str().parse()?;
                 img = img.thumbnail(w, h);
             } else {
-                return Err(format!("{} is invalid resize argument", resize).into());
+                return Err(format!("{resize} is invalid resize argument").into());
             }
         };
         info!(
@@ -60,7 +60,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             img.dimensions().1
         );
         let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
-        if scale != 1.0 {
+        if (scale - 1.0).abs() > f64::EPSILON {
             info!("Points are scaled by {}", scale);
             json_data.scale(scale);
         }

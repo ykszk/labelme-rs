@@ -103,10 +103,10 @@ impl LabelMeData {
         }
     }
 
-    /// Convert to a shape_type-centered map with a structure map\[shape_type\]\[label\] -> points
+    /// Convert to a shape_type-centered map with a structure map\[`shape_type`\]\[label\] -> points
     pub fn to_shape_map(&self) -> IndexMap<String, IndexMap<String, Vec<&Vec<Point>>>> {
         let mut map = IndexMap::new();
-        for shape in self.shapes.iter() {
+        for shape in &self.shapes {
             let m = map
                 .entry(shape.shape_type.clone()) // TODO: avoid cloning
                 .or_insert_with(IndexMap::new);
@@ -118,8 +118,8 @@ impl LabelMeData {
 
     /// Scale points
     pub fn scale(&mut self, scale: f64) {
-        for shape in self.shapes.iter_mut() {
-            for p in shape.points.iter_mut() {
+        for shape in &mut self.shapes {
+            for p in &mut shape.points {
                 p.0 = (scale * p.0 as f64) as f32;
                 p.1 = (scale * p.1 as f64) as f32;
             }
@@ -144,7 +144,7 @@ impl LabelMeData {
     ///
     /// # Arguments
     ///
-    /// * json_path: absolute path
+    /// * `json_path`: absolute path
     ///
     /// ```
     /// use std::path::Path;

@@ -55,8 +55,8 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to read glob pattern")
         .collect();
     let file_list = Arc::new(file_list);
-    let flag_set = IndexSet::from_iter(args.flag.into_iter());
-    let ignore_set = IndexSet::from_iter(args.ignore.into_iter());
+    let flag_set: IndexSet<String> = args.flag.into_iter().collect();
+    let ignore_set: IndexSet<String> = args.ignore.into_iter().collect();
     std::thread::scope(|scope| {
         let mut handles = vec![];
         for thread_i in 0..n_threads {
@@ -92,7 +92,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                                 }
                             };
                         }
-                        Err(e) => println!("{:?}", e),
+                        Err(e) => println!("{e:?}"),
                     }
                 }
             });
@@ -107,7 +107,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             "{} / {} annotations are valid.",
             valid_count.load(Ordering::SeqCst),
             checked_count.load(Ordering::SeqCst)
-        )
+        );
     }
     Ok(())
 }

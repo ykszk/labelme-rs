@@ -32,15 +32,11 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         let v_filename = json_data
             .remove(&args.filename)
             .ok_or_else(|| format!("Key '{}' not found", args.filename))?;
-        let filename = match v_filename {
-            serde_json::Value::String(s) => s,
-            _ => panic!("expected String"),
-        };
+        let serde_json::Value::String(filename) = v_filename else {panic!("expected String")};
         let output_filename = outdir.join(filename);
         if output_filename.exists() && !args.overwrite {
             return Err(format!(
-                "Output file {:?} already exists. Add \"--overwrite\" option to force overwriting.",
-                output_filename
+                "Output file {output_filename:?} already exists. Add \"--overwrite\" option to force overwriting."
             )
             .into());
         }

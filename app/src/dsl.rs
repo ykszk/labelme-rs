@@ -145,7 +145,7 @@ pub fn parse_rules(rules: &[String]) -> Result<Vec<Expr>, String> {
     asts.map_err(|parse_errs| {
         let errs: Vec<_> = parse_errs
             .into_iter()
-            .map(|e| format!("Parse error: {}", e))
+            .map(|e| format!("Parse error: {e}"))
             .collect();
         errs.join("\n")
     })
@@ -163,18 +163,18 @@ impl fmt::Display for CheckError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CheckError::EvaluatedFalse(cond, (c1, c2)) => {
-                write!(f, "Unsatisfied rule; \"{}\": {} vs. {}", cond, c1, c2)
+                write!(f, "Unsatisfied rule; \"{cond}\": {c1} vs. {c2}")
             }
             CheckError::EvaluatedMultipleFalses(errors) => {
                 write!(f, "Unsatisfied rules;")?;
                 let msg = errors
                     .iter()
-                    .map(|(cond, (c1, c2))| format!(" \"{}\": {} vs. {}", cond, c1, c2))
+                    .map(|(cond, (c1, c2))| format!(" \"{cond}\": {c1} vs. {c2}"))
                     .collect::<Vec<_>>()
                     .join(", ");
                 f.write_str(&msg)
             }
-            _ => write!(f, "{:?}", self),
+            _ => write!(f, "{self:?}"),
         }
     }
 }
@@ -197,7 +197,7 @@ pub fn check_json_file(
     let json_data: LabelMeData = serde_json::from_reader(BufReader::new(
         File::open(json_filename).or(Err(CheckError::FileNotFound))?,
     ))
-    .map_err(|err| CheckError::InvalidJson(format!("{}", err)))?;
+    .map_err(|err| CheckError::InvalidJson(format!("{err}")))?;
     check_json(rules, asts, json_data, flags, ignores)
 }
 
@@ -208,8 +208,8 @@ pub fn check_jsons(
     flags: &FlagSet,
     ignores: &FlagSet,
 ) -> Result<CheckResult, CheckError> {
-    let json_data: LabelMeData = serde_json::from_str(json_str)
-        .map_err(|err| CheckError::InvalidJson(format!("{}", err)))?;
+    let json_data: LabelMeData =
+        serde_json::from_str(json_str).map_err(|err| CheckError::InvalidJson(format!("{err}")))?;
     check_json(rules, asts, json_data, flags, ignores)
 }
 
@@ -220,16 +220,11 @@ pub fn check_json(
     flags: &FlagSet,
     ignores: &FlagSet,
 ) -> Result<CheckResult, CheckError> {
-    let json_flags =
-        FlagSet::from_iter(json_data.flags.into_iter().filter_map(
-            |(k, v)| {
-                if v {
-                    Some(k)
-                } else {
-                    None
-                }
-            },
-        ));
+    let json_flags: FlagSet = json_data
+        .flags
+        .into_iter()
+        .filter_map(|(k, v)| if v { Some(k) } else { None })
+        .collect();
     if (!flags.is_empty() && json_flags.intersection(flags).count() == 0)
         || json_flags.intersection(ignores).count() > 0
     {
@@ -294,7 +289,7 @@ impl TryFrom<&str> for ResizeParam {
             let h: u32 = cap.get(2).unwrap().as_str().parse()?;
             Ok(ResizeParam::Size(w, h))
         } else {
-            Err(format!("{} is invalid resize argument", param).into())
+            Err(format!("{param} is invalid resize argument").into())
         }
     }
 }
