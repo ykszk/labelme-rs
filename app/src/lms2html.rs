@@ -146,7 +146,8 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                             &std::fs::canonicalize(&input).expect("Failed to resolve image path"),
                         )
                     };
-                    let mut img = labelme_rs::load_image(&img_filename);
+                    let mut img =
+                        labelme_rs::load_image(&img_filename).expect("Failed to load image");
                     match &resize_param {
                         Some(param) => {
                             let orig_size = img.dimensions();

@@ -12,6 +12,8 @@ use std::path::{Component, Path, PathBuf};
 use std::{fs::File, io::BufReader};
 pub use svg;
 use svg::node::element;
+use zune_jpeg::zune_core::colorspace::ColorSpace;
+use zune_jpeg::JpegDecoder;
 
 pub type Flags = IndexMap<String, bool>;
 pub type FlagSet = IndexSet<String>;
@@ -340,18 +342,16 @@ impl TryFrom<&Path> for LabelMeData {
     }
 }
 
-pub fn load_image(path: &Path) -> image::DynamicImage {
-    let mut image_file = std::fs::File::open(path).expect("File not found.");
-    let mut buf: Vec<u8> = Vec::with_capacity(image_file.metadata().unwrap().len() as usize);
-    image_file.read_to_end(&mut buf).unwrap();
-    let img_fmt = image::ImageFormat::from_path(path).unwrap();
-    use zune_jpeg::zune_core::colorspace::ColorSpace;
-    use zune_jpeg::JpegDecoder;
+pub fn load_image(path: &Path) -> Result<image::DynamicImage, Box<dyn Error>> {
+    let img_fmt = image::ImageFormat::from_path(path)?;
 
     let img = match img_fmt {
         image::ImageFormat::Jpeg => {
+            let mut image_file = std::fs::File::open(path)?;
+            let mut buf: Vec<u8> = Vec::with_capacity(image_file.metadata()?.len() as usize);
+            image_file.read_to_end(&mut buf)?;
             let mut decoder = JpegDecoder::new(&buf);
-            let pixels = decoder.decode().unwrap();
+            let pixels = decoder.decode()?;
             let color_space = decoder.get_input_colorspace().unwrap();
             let image_info = decoder.info().unwrap();
             match color_space {
@@ -372,9 +372,9 @@ pub fn load_image(path: &Path) -> image::DynamicImage {
                 _ => panic!("Unsupported jpeg color space"),
             }
         }
-        _ => image::load_from_memory_with_format(&buf, img_fmt).unwrap(),
+        _ => image::open(path)?,
     };
-    img
+    Ok(img)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
