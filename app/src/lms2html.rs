@@ -146,26 +146,11 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                             &std::fs::canonicalize(&input).expect("Failed to resolve image path"),
                         )
                     };
-                    let mut img = labelme_rs::image::open(&img_filename).unwrap_or_else(|_| {
-                        panic!(
-                            "Image file {} not found.",
-                            img_filename.as_os_str().to_str().unwrap()
-                        )
-                    });
+                    let mut img = labelme_rs::load_image(&img_filename);
                     match &resize_param {
                         Some(param) => {
                             let orig_size = img.dimensions();
-                            match param {
-                                dsl::ResizeParam::Percentage(p) => {
-                                    img = img.thumbnail(
-                                        (p * img.dimensions().0 as f64) as u32,
-                                        (p * img.dimensions().1 as f64) as u32,
-                                    );
-                                }
-                                dsl::ResizeParam::Size(w, h) => {
-                                    img = img.thumbnail(*w, *h);
-                                }
-                            };
+                            img = param.resize(&img);
                             debug!(
                                 "Image is resized to {} x {}",
                                 img.dimensions().0,

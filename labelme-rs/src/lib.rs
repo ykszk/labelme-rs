@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub use serde_json;
 use std::error::Error;
 use std::io::Cursor;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::{fs::File, io::BufReader};
 pub use svg;
@@ -337,6 +338,43 @@ impl TryFrom<&Path> for LabelMeData {
         let s = std::fs::read_to_string(filename)?;
         Ok(s.as_str().try_into()?)
     }
+}
+
+pub fn load_image(path: &Path) -> image::DynamicImage {
+    let mut image_file = std::fs::File::open(path).expect("File not found.");
+    let mut buf: Vec<u8> = Vec::with_capacity(image_file.metadata().unwrap().len() as usize);
+    image_file.read_to_end(&mut buf).unwrap();
+    let img_fmt = image::ImageFormat::from_path(path).unwrap();
+    use zune_jpeg::zune_core::colorspace::ColorSpace;
+    use zune_jpeg::JpegDecoder;
+
+    let img = match img_fmt {
+        image::ImageFormat::Jpeg => {
+            let mut decoder = JpegDecoder::new(&buf);
+            let pixels = decoder.decode().unwrap();
+            let color_space = decoder.get_input_colorspace().unwrap();
+            let image_info = decoder.info().unwrap();
+            match color_space {
+                ColorSpace::Luma => image::ImageBuffer::from_raw(
+                    image_info.width as u32,
+                    image_info.height as u32,
+                    pixels,
+                )
+                .map(image::DynamicImage::ImageLuma8)
+                .unwrap(),
+                ColorSpace::RGB => image::ImageBuffer::from_raw(
+                    image_info.width as u32,
+                    image_info.height as u32,
+                    pixels,
+                )
+                .map(image::DynamicImage::ImageRgba8)
+                .unwrap(),
+                _ => panic!("Unsupported jpeg color space"),
+            }
+        }
+        _ => image::load_from_memory_with_format(&buf, img_fmt).unwrap(),
+    };
+    img
 }
 
 #[derive(Serialize, Deserialize, Debug)]
