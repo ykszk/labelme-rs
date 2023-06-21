@@ -38,8 +38,9 @@ pub struct CmdArgs {
     /// Override imagePath's directory
     #[clap(long)]
     image_dir: Option<PathBuf>,
-    #[clap(short, long, default_value = "0")]
-    jobs: usize,
+    /// The number of jobs. Use all available cores by default.
+    #[clap(short, long)]
+    jobs: Option<usize>,
 }
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
@@ -58,11 +59,13 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             include_str!("templates/tag_checkbox.html"),
         ),
     ])?;
-    let n_jobs = if args.jobs == 0 {
-        std::thread::available_parallelism()?.get()
+    let n_jobs = if let Some(n) = args.jobs {
+        n
     } else {
-        args.jobs
+        std::thread::available_parallelism()?.get()
     };
+    info!("Use {n_jobs} cores");
+    info!("Load jsons");
     let mut entries: Vec<(PathBuf, Box<labelme_rs::LabelMeData>)> = if args.input.is_dir() {
         let entries: Result<Vec<_>, Box<dyn std::error::Error>> =
             glob::glob(args.input.join("*.json").to_str().unwrap())
@@ -163,14 +166,14 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                                     img = img.thumbnail(*w, *h);
                                 }
                             };
-                            info!(
+                            debug!(
                                 "Image is resized to {} x {}",
                                 img.dimensions().0,
                                 img.dimensions().1
                             );
                             let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
                             if (scale - 1.0).abs() > f64::EPSILON {
-                                info!("Points are scaled by {}", scale);
+                                debug!("Points are scaled by {}", scale);
                                 json_data.scale(scale);
                             }
                         }
@@ -228,6 +231,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     {
         shared_bar.lock().unwrap().finish();
     };
+    info!("Generate html");
     let tag_cbs = all_tags
         .iter()
         .filter_map(|(tag, checked)| {
@@ -251,7 +255,6 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let mut writer = std::io::BufWriter::new(std::fs::File::create(args.output)?);
     let mut context = tera::Context::new();
     let style = if let Some(css) = args.css {
         std::fs::read_to_string(css)?
@@ -264,6 +267,9 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     context.insert("main", &svgs.join("\n"));
     context.insert("style", &style);
     let html = templates.render("catalog.html", &context)?;
+    info!("Write html");
+    let mut writer = std::io::BufWriter::new(std::fs::File::create(args.output)?);
     writer.write_all(html.as_bytes()).unwrap();
+    info!("Done");
     Ok(())
 }
