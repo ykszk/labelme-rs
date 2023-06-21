@@ -129,7 +129,8 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     std::thread::scope(|scope| {
         let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
-        for chunk in entries.chunks_mut(n_jobs) {
+        let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
+        for chunk in entries.chunks_mut(chunk_size) {
             handles.push(scope.spawn(|| {
                 let mut svgs: Vec<String> = Vec::with_capacity(chunk.len());
                 let mut all_tags: IndexMap<String, bool> = IndexMap::new();
