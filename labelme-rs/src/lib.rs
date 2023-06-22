@@ -1,3 +1,4 @@
+use base64::Engine;
 pub use image;
 use image::GenericImageView;
 pub use indexmap;
@@ -46,7 +47,7 @@ pub type PointData = LabelMeData;
 pub fn img2base64(img: &image::DynamicImage, format: image::ImageOutputFormat) -> String {
     let mut cursor = Cursor::new(Vec::new());
     img.write_to(&mut cursor, format).unwrap();
-    base64::encode(cursor.into_inner())
+    base64::engine::general_purpose::STANDARD.encode(cursor.into_inner())
 }
 
 pub fn normalize_path(path: &Path) -> PathBuf {

@@ -106,7 +106,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         let bar = indicatif::ProgressBar::new(entries.len() as _);
         bar.set_style(
             indicatif::ProgressStyle::default_bar()
-                .template("[{elapsed}<{eta}] | {wide_bar} | {pos}/{len}"),
+                .template("[{elapsed}<{eta}] | {wide_bar} | {pos}/{len}")?,
         );
         for entry in entries {
             let input = entry?;

@@ -20,10 +20,10 @@ clap = { version = "3", features = ["derive"] }
 regex = "1"
 tera = { version = "1", default-features = false }
 log = "0"
-env_logger = "0.9"
+env_logger = "0"
 glob = "0"
-indicatif = "0.16"
+indicatif = "0.17"
 chumsky = "0"
 num_cpus = "1"
 libc = "0"
-lazy_static = "1.4.0"
+lazy_static = "1.4"

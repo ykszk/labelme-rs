@@ -103,7 +103,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     let bar = indicatif::ProgressBar::new(entries.len() as _);
     bar.set_style(
         indicatif::ProgressStyle::default_bar()
-            .template("[{elapsed}<{eta}] | {wide_bar} | {pos}/{len}"),
+            .template("[{elapsed}<{eta}] | {wide_bar} | {pos}/{len}")?,
     );
     let shared_bar = Arc::new(Mutex::new(bar));
     let label_colors = match args.config {
