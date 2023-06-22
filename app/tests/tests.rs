@@ -42,10 +42,10 @@ fn test_jsonl_split() {
         assert!(orig_path.exists());
         let orig_str = std::fs::read_to_string(orig_path)
             .unwrap()
-            .replace([' ', '\n'], "");
+            .replace([' ', '\n', '\r'], "");
         let new_str = std::fs::read_to_string(path)
             .unwrap()
-            .replace([' ', '\n'], "");
+            .replace([' ', '\n', '\r'], "");
         assert_eq!(orig_str, new_str);
     }
 }
