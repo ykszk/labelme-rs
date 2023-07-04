@@ -26,7 +26,7 @@ pub struct CmdArgs {
     #[clap(short, long)]
     stats: bool,
     /// Set verbosity
-    #[clap(short, long, parse(from_occurrences))]
+    #[clap(short, long, action = clap::ArgAction::Count)]
     verbose: usize,
     /// Set the number of threads
     #[clap(short, long, default_value_t = 0)]

@@ -16,7 +16,7 @@ path = "src/dsl.rs"
 
 [dependencies]
 labelme-rs = { path = "../labelme-rs"}
-clap = { version = "3", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 regex = "1"
 tera = { version = "1", default-features = false }
 log = "0"
