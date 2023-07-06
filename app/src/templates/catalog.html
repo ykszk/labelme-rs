@@ -25,6 +25,29 @@
                     }
                 }
             }
+            function switch_display() {
+                let div_zoom = document.getElementById('zoom');
+                let div_main = document.getElementById('main');
+                if (div_zoom.style.display === 'none') {
+                    div_zoom.style.display = 'flex';
+                    div_main.style.display = 'none';
+                } else {
+                    div_zoom.style.display = 'none';
+                    div_main.style.display = 'flex';
+                }
+            }
+            function multiple_attr(elm, attr, multiplier) {
+                elm.setAttribute(attr, multiplier * Number(elm.getAttribute(attr)))
+            }
+            function zoom(caller) {
+                const div = caller.cloneNode(true);
+                const div_zoom = document.getElementById('zoom');
+                const svg = div.querySelector('svg');
+                svg.setAttribute("transform", "scale(2)");
+                svg.style.margin = 'auto'
+                div_zoom.replaceChildren(svg)
+                switch_display();
+            }
         </script>
     </head>
 
@@ -37,17 +60,21 @@
                     <label for="cb_point_visibility">Point</label>
                 </div>
                 <div title="Toggle rectangles's visibility">
-                    <input type="checkbox" id="cb_rectangle_visibility" checked onchange="toggle_visibility(this, 'rectangle')">
+                    <input type="checkbox" id="cb_rectangle_visibility" checked
+                        onchange="toggle_visibility(this, 'rectangle')">
                     <label for="cb_rectangle_visibility">Rectangle</label>
                 </div>
                 <div title="Toggle circle's visibility">
-                    <input type="checkbox" id="cb_circle_visibility" checked onchange="toggle_visibility(this, 'circle')">
+                    <input type="checkbox" id="cb_circle_visibility" checked
+                        onchange="toggle_visibility(this, 'circle')">
                     <label for="cb_circle_visibility">Circle</label>
                 </div>
                 {{tag_checkboxes}}
             </div>
         </div>
-        <div class="main">
+        <div id="zoom" onclick="switch_display()" style="display:none; width: 100%; height: 100%;">
+        </div>
+        <div id="main" class="main">
             {{main}}
         </div>
     </body>
