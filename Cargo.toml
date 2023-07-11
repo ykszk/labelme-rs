@@ -14,6 +14,7 @@ edition = "2021"
 repository = "https://github.com/ykszk/labelme-rs"
 description = """
 My utility tools for labelme.
+
 Check the repository (https://github.com/ykszk/labelme-rs) for details.
 """
 

@@ -14,6 +14,7 @@ mod swap_prefix;
 mod validate;
 mod jsonl;
 mod split_jsonl;
+mod filter;
 
 #[derive(Subcommand)]
 enum Command {
@@ -29,6 +30,8 @@ enum Command {
     Jsonl(jsonl::CmdArgs),
     /// Split jsonl into json files
     Split(split_jsonl::CmdArgs),
+    /// Filter jsonl based on validation result
+    Filter(filter::CmdArgs),
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,5 +43,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Swap(args) => swap_prefix::cmd(args),
         Command::Jsonl(args) => jsonl::cmd_jsonl(args),
         Command::Split(args) => split_jsonl::cmd(args),
+        Command::Filter(args) => filter::cmd(args),
     }
 }
