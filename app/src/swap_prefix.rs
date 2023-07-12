@@ -1,12 +1,12 @@
 use clap::Args;
-use std::{
-    io::Read,
-    path::{Path, PathBuf},
-};
+use labelme_rs::serde_json;
+use std::fs::File;
+use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::path::{Path, PathBuf};
 
 #[derive(Args, Debug)]
 pub struct CmdArgs {
-    /// Input json filename or json containing directory
+    /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for jsonl input with stdin (for piping).
     input: PathBuf,
     /// New imagePath prefix
     prefix: String,
@@ -14,21 +14,37 @@ pub struct CmdArgs {
     output: Option<PathBuf>,
 }
 
+trait ImagePath {
+    fn image_path(&self) -> &str;
+}
+
+impl ImagePath for labelme_rs::LabelMeData {
+    fn image_path(&self) -> &str {
+        &self.imagePath
+    }
+}
+
+type JsonMap = serde_json::Map<String, serde_json::Value>;
 fn swap_prefix(
     prefix: &str,
-    mut json_data: labelme_rs::LabelMeData,
-) -> Result<labelme_rs::LabelMeData, Box<dyn std::error::Error>> {
+    mut json_data: JsonMap,
+) -> Result<JsonMap, Box<dyn std::error::Error>> {
     let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
-    let new_image_path = format!(
-        "{}/{}",
-        prefix,
-        Path::new(&json_data.imagePath.replace('\\', "/"))
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-    );
-    json_data.imagePath = new_image_path;
+    let entry = json_data.entry("imagePath").and_modify(|value| {
+        *value = format!(
+            "{}/{}",
+            prefix,
+            Path::new(&value.as_str().unwrap().replace('\\', "/"))
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+        )
+        .into();
+    });
+    if let serde_json::map::Entry::Vacant(_) = entry {
+        panic!("imagePath not found.");
+    }
     Ok(json_data)
 }
 
@@ -37,19 +53,11 @@ fn swap_prefix_file(
     prefix: &str,
     output: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut json_data = if input.as_os_str() == std::ffi::OsStr::new("-") {
-        let mut buffer = String::new();
-        std::io::stdin().read_to_string(&mut buffer)?;
-        labelme_rs::LabelMeData::try_from(buffer.as_str())?
-    } else {
-        labelme_rs::LabelMeData::try_from(input)?
-    };
-    json_data = swap_prefix(prefix, json_data)?;
-    if input.as_os_str() == std::ffi::OsStr::new("-") {
-        println!("{}", labelme_rs::serde_json::to_string_pretty(&json_data)?);
-    } else {
-        json_data.save(output)?;
-    }
+    let json_str = std::fs::read_to_string(input)?;
+    let json_data: JsonMap = serde_json::from_str(&json_str).unwrap();
+    let line = serde_json::to_string(&swap_prefix(prefix, json_data)?)?;
+    let mut writer = std::io::BufWriter::new(std::fs::File::create(output)?);
+    writeln!(writer, "{}", line)?;
     Ok(())
 }
 
@@ -84,8 +92,9 @@ fn test_swap_prefix() {
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let output = args.output.unwrap_or_else(|| args.input.clone());
     if args.input.is_dir() {
+        let output = args.output.unwrap_or_else(|| args.input.clone());
+        debug!("Directory input");
         if !output.exists() {
             return Err(format!(
                 "Output directory \"{}\" does not exist.",
@@ -115,10 +124,49 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             bar.inc(1);
         }
         bar.finish();
-        Ok(())
     } else {
-        // json file or '-'
-        debug!("Process single file");
-        swap_prefix_file(&args.input, &args.prefix, &output)
+        debug!("File or stdin input");
+        if args
+            .input
+            .extension()
+            .map(|ext| ext == "json")
+            .unwrap_or(false)
+        {
+            // single json
+            let output = args.output.unwrap_or_else(|| args.input.clone());
+            swap_prefix_file(&args.input, &args.prefix, &output)?;
+        } else if args.input.as_os_str() == "-"
+            || args
+                .input
+                .extension()
+                .map(|ext| ext == "jsonl" || ext == "ndjson")
+                .unwrap_or(false)
+        {
+            // jsonl or ndjson
+            let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
+                Box::new(BufReader::new(std::io::stdin()))
+            } else {
+                Box::new(BufReader::new(File::open(&args.input).unwrap()))
+            };
+            let mut writer: Box<dyn Write> = match args.output {
+                Some(x) => {
+                    if x.as_os_str() == "-" {
+                        Box::new(BufWriter::new(std::io::stdout()))
+                    } else {
+                        Box::new(BufWriter::new(File::create(&x).unwrap()))
+                    }
+                }
+                None => Box::new(BufWriter::new(std::io::stdout())),
+            };
+            for line in reader.lines() {
+                let line = line?;
+                let json_data: JsonMap = serde_json::from_str(&line).unwrap();
+                let json_data = swap_prefix(&args.prefix, json_data)?;
+                writeln!(writer, "{}", serde_json::to_string(&json_data)?)?;
+            }
+        } else {
+            panic!("Unknown input type: {:?}", args.input);
+        }
     }
+    Ok(())
 }
