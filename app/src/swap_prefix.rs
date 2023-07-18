@@ -12,6 +12,9 @@ pub struct CmdArgs {
     prefix: String,
     /// Output json filename or output directory
     output: Option<PathBuf>,
+    /// Swap prefix of the value associated by the given key instead of `imagePath`
+    #[clap(long, default_value = "imagePath")]
+    key: String,
 }
 
 trait ImagePath {
@@ -26,11 +29,12 @@ impl ImagePath for labelme_rs::LabelMeData {
 
 type JsonMap = serde_json::Map<String, serde_json::Value>;
 fn swap_prefix(
+    key: &str,
     prefix: &str,
     mut json_data: JsonMap,
 ) -> Result<JsonMap, Box<dyn std::error::Error>> {
     let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
-    let entry = json_data.entry("imagePath").and_modify(|value| {
+    let entry = json_data.entry(key).and_modify(|value| {
         *value = format!(
             "{}/{}",
             prefix,
@@ -50,12 +54,18 @@ fn swap_prefix(
 
 fn swap_prefix_file(
     input: &Path,
+    key: &str,
     prefix: &str,
     output: &Path,
+    pretty: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let json_str = std::fs::read_to_string(input)?;
     let json_data: JsonMap = serde_json::from_str(&json_str).unwrap();
-    let line = serde_json::to_string(&swap_prefix(prefix, json_data)?)?;
+    let line = if pretty {
+        serde_json::to_string_pretty(&swap_prefix(key, prefix, json_data)?)?
+    } else {
+        serde_json::to_string(&swap_prefix(key, prefix, json_data)?)?
+    };
     let mut writer = std::io::BufWriter::new(std::fs::File::create(output)?);
     writeln!(writer, "{}", line)?;
     Ok(())
@@ -63,18 +73,20 @@ fn swap_prefix_file(
 
 #[test]
 fn test_swap_prefix() {
+    let key = "imagePath";
+    let pretty = true;
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     filename.push("tests/img1.json");
     println!("{filename:?}");
     let original_data = labelme_rs::LabelMeData::try_from(filename.as_path()).unwrap();
     let output_filename = PathBuf::from("tests/output/img1_swapped.json");
-    assert!(swap_prefix_file(&filename, "..", &output_filename).is_ok());
+    assert!(swap_prefix_file(&filename, key, "..", &output_filename, pretty).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
     );
-    assert!(swap_prefix_file(&filename, "../", &output_filename).is_ok());
+    assert!(swap_prefix_file(&filename, key, "../", &output_filename, pretty).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
@@ -85,7 +97,7 @@ fn test_swap_prefix() {
     filename.push("tests/backslash.json");
     println!("{filename:?}");
     let output_filename = PathBuf::from("tests/output/img1_swapped.json");
-    assert!(swap_prefix_file(&filename, "..", &output_filename).is_ok());
+    assert!(swap_prefix_file(&filename, key, "..", &output_filename, pretty).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!("../stem.jpg", swapped_data.imagePath);
 }
@@ -120,7 +132,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         for entry in entries {
             let input = entry?;
             let output = output.clone().join(input.file_name().unwrap());
-            swap_prefix_file(&input, &args.prefix, &output)?;
+            swap_prefix_file(&input, &args.key, &args.prefix, &output, true)?;
             bar.inc(1);
         }
         bar.finish();
@@ -134,7 +146,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         {
             // single json
             let output = args.output.unwrap_or_else(|| args.input.clone());
-            swap_prefix_file(&args.input, &args.prefix, &output)?;
+            swap_prefix_file(&args.input, &args.key, &args.prefix, &output, false)?;
         } else if args.input.as_os_str() == "-"
             || args
                 .input
@@ -161,7 +173,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             for line in reader.lines() {
                 let line = line?;
                 let json_data: JsonMap = serde_json::from_str(&line).unwrap();
-                let json_data = swap_prefix(&args.prefix, json_data)?;
+                let json_data = swap_prefix(&args.key, &args.prefix, json_data)?;
                 writeln!(writer, "{}", serde_json::to_string(&json_data)?)?;
             }
         } else {
