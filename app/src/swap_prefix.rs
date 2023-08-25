@@ -36,8 +36,13 @@ fn swap_prefix(
     let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
     let entry = json_data.entry(key).and_modify(|value| {
         *value = format!(
-            "{}/{}",
+            "{}{}{}",
             prefix,
+            if prefix.ends_with('/') || prefix.is_empty() {
+                ""
+            } else {
+                "/"
+            },
             Path::new(&value.as_str().unwrap().replace('\\', "/"))
                 .file_name()
                 .unwrap()
@@ -47,7 +52,7 @@ fn swap_prefix(
         .into();
     });
     if let serde_json::map::Entry::Vacant(_) = entry {
-        panic!("imagePath not found.");
+        panic!("`{}` key not found.", key);
     }
     Ok(json_data)
 }
@@ -100,6 +105,9 @@ fn test_swap_prefix() {
     assert!(swap_prefix_file(&filename, key, "..", &output_filename, pretty).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!("../stem.jpg", swapped_data.imagePath);
+    assert!(swap_prefix_file(&filename, key, "", &output_filename, pretty).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
+    assert_eq!("stem.jpg", swapped_data.imagePath);
 }
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
