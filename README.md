@@ -22,6 +22,36 @@ lmrs <COMMAND> --help
 ```
 to see help in full detail.
 
+## jsonl
+Create jsonl/ndjson file from the given json-containing directory.
+`filename` key is added to each json to make this process invertible.
+Use `split` command to invert.
+
+```console
+lmrs jsonl json_directory/ > jsons.jsonl
+```
+
+## split
+Invert `lmrs jsonl` process.
+i.e. split jsonl file into separate json files using `filename` values as filenames.
+
+Simple use:
+```console
+lmrs data.jsonl -o outdir
+```
+
+Use with `jq` filtering:
+```console
+lmrs jsonl json_indir | jq -c 'select(.is_good)' | lmrs split -o json_outdir
+```
+
+## filter
+Filter valid/invalid data. See `validate` command for validation details.
+
+```console
+lmrs jsonl app/tests | lmrs filter - -r app/tests/rules.txt
+```
+
 ## swap
 Add/Swap imagePath's prefix.
 e.g. `"imagePath": "img.jpg"` -> `"imagePath": "../images/img.jpg"`
@@ -35,33 +65,25 @@ Create SVG image from labeme annotation.
 Create HTML with svgs from labelme directory.
 
 ## validate
-Validate the number of annotations based on the given rules.
+Validate the number of points in annotations based on the given rules and show the list of complaints about the annotation.
 
 ```console
 lmrs validate app/tests/rules.txt app/tests --verbose
 ```
 
-## jsonl
-Output jsons line by line (jsonl) from given directory containing json files.
-`filename` key is added to each json to make this process invertible.
-Use `split` command to invert.
-
-```console
-lmrs jsonl json_directory/ > jsons.jsonl
+Output:
+```
+img1.json,Unsatisfied rules; "TR > 0": 0 vs. 0,  "BL > 0": 0 vs. 0,  "BR > 0": 0 vs. 0,  "TL == TR": 1 vs. 0
 ```
 
-## split
-Invert `lmrs jsonl` process.
-i.e. split jsonl file into json files using `filename` values as filenames.
-
-Simple use:
-```console
-lmrs data.jsonl -o outdir
+Rule example:
 ```
-
-Use with filtering:
-```console
-lmrs jsonl json_indir | jq -c 'select(.is_good)' | lmrs split -o json_outdir
+TL > 0
+TR > 0
+BL > 0
+BR > 0
+TL == TR
+BL == BR
 ```
 
 # Python binding
