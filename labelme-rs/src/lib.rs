@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 pub use serde_json;
 use std::error::Error;
 use std::io::Cursor;
-use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::{fs::File, io::BufReader};
 pub use svg;
@@ -154,40 +153,38 @@ impl LabelMeData {
     /// use std::path::Path;
     /// let mut data = labelme_rs::LabelMeData::new(&[], &[], 128, 128, "image.jpg");
     ///
-    /// let image_path = data.resolve_image_path(Path::new("image.json")).into_os_string().into_string().unwrap();
+    /// let image_path = data.resolve_image_path(Path::new(".")).into_os_string().into_string().unwrap();
     /// assert_eq!(image_path, "image.jpg");
     ///
-    /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// let image_path = data.resolve_image_path(Path::new("/json/parent/")).into_os_string().into_string().unwrap();
     /// #[cfg(target_os = "windows")]
-    /// assert_eq!(image_path, r"\path\to\image.jpg");
+    /// assert_eq!(image_path, r"\json\parent\image.jpg");
     /// #[cfg(not(target_os = "windows"))]
-    /// assert_eq!(image_path, "/path/to/image.jpg");
+    /// assert_eq!(image_path, "/json/parent/image.jpg");
     ///
     /// data.imagePath = "../image.jpg".into();
-    /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// let image_path = data.resolve_image_path(Path::new("/json/parent/")).into_os_string().into_string().unwrap();
     /// #[cfg(target_os = "windows")]
-    /// assert_eq!(image_path, r"\path\image.jpg");
+    /// assert_eq!(image_path, r"\json\image.jpg");
     /// #[cfg(not(target_os = "windows"))]
-    /// assert_eq!(image_path, "/path/image.jpg");
+    /// assert_eq!(image_path, "/json/image.jpg");
     ///
     /// data.imagePath = "../images/image.jpg".into();
-    /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// let image_path = data.resolve_image_path(Path::new("/json/parent/")).into_os_string().into_string().unwrap();
     /// #[cfg(target_os = "windows")]
-    /// assert_eq!(image_path, r"\path\images\image.jpg");
+    /// assert_eq!(image_path, r"\json\images\image.jpg");
     /// #[cfg(not(target_os = "windows"))]
-    /// assert_eq!(image_path, "/path/images/image.jpg");
+    /// assert_eq!(image_path, "/json/images/image.jpg");
     ///
     /// data.imagePath = r"..\images\image.jpg".into();
-    /// let image_path = data.resolve_image_path(Path::new("/path/to/image.json")).into_os_string().into_string().unwrap();
+    /// let image_path = data.resolve_image_path(Path::new("/json/parent/")).into_os_string().into_string().unwrap();
     /// #[cfg(target_os = "windows")]
-    /// assert_eq!(image_path, r"\path\images\image.jpg");
+    /// assert_eq!(image_path, r"\json\images\image.jpg");
     /// #[cfg(not(target_os = "windows"))]
-    /// assert_eq!(image_path, "/path/images/image.jpg");
+    /// assert_eq!(image_path, "/json/images/image.jpg");
     /// ```
-    pub fn resolve_image_path(&self, json_path: &Path) -> PathBuf {
-        let img_rel_to_json = json_path
-            .parent()
-            .unwrap_or_else(|| Path::new(""))
+    pub fn resolve_image_path(&self, json_dir: &Path) -> PathBuf {
+        let img_rel_to_json = json_dir
             .join(self.imagePath.replace('\\', "/"));
         normalize_path(&img_rel_to_json)
     }
@@ -348,9 +345,7 @@ pub fn load_image(path: &Path) -> Result<image::DynamicImage, Box<dyn Error>> {
 
     let img = match img_fmt {
         image::ImageFormat::Jpeg => {
-            let mut image_file = std::fs::File::open(path)?;
-            let mut buf: Vec<u8> = Vec::with_capacity(image_file.metadata()?.len() as usize);
-            image_file.read_to_end(&mut buf)?;
+            let buf = std::fs::read(path)?;
             let mut decoder = JpegDecoder::new(&buf);
             let pixels = decoder.decode()?;
             let color_space = decoder.get_input_colorspace().unwrap();

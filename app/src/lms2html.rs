@@ -100,6 +100,13 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     if entries.is_empty() {
         return Err("No json file found.".into());
     }
+    let json_dir: PathBuf = if args.input.is_dir() {
+        args.input.clone()
+    } else if args.input.as_os_str() == "-"  {
+        PathBuf::from(".")
+    } else {
+        args.input.parent().unwrap().into()
+    };
     let bar = indicatif::ProgressBar::new(entries.len() as _);
     bar.set_style(
         indicatif::ProgressStyle::default_bar()
@@ -144,11 +151,11 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                         image_dir.join(filename)
                     } else {
                         json_data.resolve_image_path(
-                            &std::fs::canonicalize(&input).expect("Failed to resolve image path"),
+                            &json_dir
                         )
                     };
                     let mut img =
-                        labelme_rs::load_image(&img_filename).expect("Failed to load image");
+                        labelme_rs::load_image(&img_filename).unwrap_or_else(|e| panic!("Failed to load image {:?}: {:?}", img_filename, e));
                     match &resize_param {
                         Some(param) => {
                             let orig_size = img.dimensions();
