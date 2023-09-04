@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 pub use serde_json;
 use std::error::Error;
 use std::io::Cursor;
-use std::path::{Component, Path, PathBuf};
+use std::path::Path;
 use std::{fs::File, io::BufReader};
 pub use svg;
 use svg::node::element;
@@ -47,33 +47,6 @@ pub fn img2base64(img: &image::DynamicImage, format: image::ImageOutputFormat) -
     let mut cursor = Cursor::new(Vec::new());
     img.write_to(&mut cursor, format).unwrap();
     base64::engine::general_purpose::STANDARD.encode(cursor.into_inner())
-}
-
-pub fn normalize_path(path: &Path) -> PathBuf {
-    let mut components = path.components().peekable();
-    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
-        components.next();
-        PathBuf::from(c.as_os_str())
-    } else {
-        PathBuf::new()
-    };
-
-    for component in components {
-        match component {
-            Component::Prefix(..) => unreachable!(),
-            Component::RootDir => {
-                ret.push(component.as_os_str());
-            }
-            Component::CurDir => {}
-            Component::ParentDir => {
-                ret.pop();
-            }
-            Component::Normal(c) => {
-                ret.push(c);
-            }
-        }
-    }
-    ret
 }
 
 impl LabelMeData {
@@ -141,52 +114,6 @@ impl LabelMeData {
     pub fn save(&self, filename: &Path) -> Result<(), Box<dyn Error>> {
         let writer = std::io::BufWriter::new(std::fs::File::create(filename)?);
         serde_json::to_writer_pretty(writer, self).map_err(|err| Box::new(err) as Box<dyn Error>)
-    }
-
-    /// Resolve imagePath
-    ///
-    /// # Arguments
-    ///
-    /// * `json_path`: absolute path
-    ///
-    /// ```
-    /// use std::path::Path;
-    /// let mut data = labelme_rs::LabelMeData::new(&[], &[], 128, 128, "image.jpg");
-    ///
-    /// let image_path = data.resolve_image_path(Path::new(".")).into_os_string().into_string().unwrap();
-    /// assert_eq!(image_path, "image.jpg");
-    ///
-    /// let image_path = data.resolve_image_path(Path::new("/json/parent/")).into_os_string().into_string().unwrap();
-    /// #[cfg(target_os = "windows")]
-    /// assert_eq!(image_path, r"\json\parent\image.jpg");
-    /// #[cfg(not(target_os = "windows"))]
-    /// assert_eq!(image_path, "/json/parent/image.jpg");
-    ///
-    /// data.imagePath = "../image.jpg".into();
-    /// let image_path = data.resolve_image_path(Path::new("/json/parent/")).into_os_string().into_string().unwrap();
-    /// #[cfg(target_os = "windows")]
-    /// assert_eq!(image_path, r"\json\image.jpg");
-    /// #[cfg(not(target_os = "windows"))]
-    /// assert_eq!(image_path, "/json/image.jpg");
-    ///
-    /// data.imagePath = "../images/image.jpg".into();
-    /// let image_path = data.resolve_image_path(Path::new("/json/parent/")).into_os_string().into_string().unwrap();
-    /// #[cfg(target_os = "windows")]
-    /// assert_eq!(image_path, r"\json\images\image.jpg");
-    /// #[cfg(not(target_os = "windows"))]
-    /// assert_eq!(image_path, "/json/images/image.jpg");
-    ///
-    /// data.imagePath = r"..\images\image.jpg".into();
-    /// let image_path = data.resolve_image_path(Path::new("/json/parent/")).into_os_string().into_string().unwrap();
-    /// #[cfg(target_os = "windows")]
-    /// assert_eq!(image_path, r"\json\images\image.jpg");
-    /// #[cfg(not(target_os = "windows"))]
-    /// assert_eq!(image_path, "/json/images/image.jpg");
-    /// ```
-    pub fn resolve_image_path(&self, json_dir: &Path) -> PathBuf {
-        let img_rel_to_json = json_dir
-            .join(self.imagePath.replace('\\', "/"));
-        normalize_path(&img_rel_to_json)
     }
 
     /// Count the number of labels

@@ -134,6 +134,9 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         None => None,
     };
 
+    let original_dir = std::env::current_dir().expect("Failed to acquire cwd");
+    std::env::set_current_dir(&json_dir)
+        .unwrap_or_else(|_| panic!("Failed to change directory to {:?}", json_dir));
     std::thread::scope(|scope| {
         let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
         let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
@@ -150,12 +153,14 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                         let filename = Path::new(&image_path).file_name().unwrap();
                         image_dir.join(filename)
                     } else {
-                        json_data.resolve_image_path(
-                            &json_dir
-                        )
+                        let p = PathBuf::from(&json_data.imagePath);
+                        p.canonicalize().unwrap_or_else(|_| {
+                            panic!("Failed to canonicalize {}", json_data.imagePath)
+                        })
                     };
-                    let mut img =
-                        labelme_rs::load_image(&img_filename).unwrap_or_else(|e| panic!("Failed to load image {:?}: {:?}", img_filename, e));
+                    let mut img = labelme_rs::load_image(&img_filename).unwrap_or_else(|e| {
+                        panic!("Failed to load image {:?}: {:?}", img_filename, e)
+                    });
                     match &resize_param {
                         Some(param) => {
                             let orig_size = img.dimensions();
@@ -226,6 +231,8 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         shared_bar.lock().unwrap().finish();
     };
     info!("Generate html");
+    std::env::set_current_dir(original_dir)
+        .unwrap_or_else(|_| panic!("Failed to change directory to {:?}", json_dir));
     let tag_cbs = all_tags
         .iter()
         .filter_map(|(tag, checked)| {

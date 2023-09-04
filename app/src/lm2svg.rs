@@ -32,8 +32,15 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         None => LabelColorsHex::new(),
     };
 
-    let img_filename =
-        json_data.resolve_image_path(&std::fs::canonicalize(std::path::Path::new(&args.input))?);
+    let original_dir = std::env::current_dir()?;
+    let json_dir = args
+        .input
+        .parent()
+        .unwrap_or_else(|| panic!("Failed to find parent directory of {:?}", args.input));
+    std::env::set_current_dir(json_dir)?;
+
+    let img_filename = json_dir.join(&json_data.imagePath);
+    std::env::set_current_dir(original_dir)?;
     let mut img = labelme_rs::image::open(img_filename)?;
     if let Some(resize) = args.resize {
         let resize_param = dsl::ResizeParam::try_from(resize.as_str())?;
