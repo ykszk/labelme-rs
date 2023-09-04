@@ -27,6 +27,7 @@ enum Command {
     /// Swap prefix of imagePath
     Swap(swap_prefix::CmdArgs),
     /// Concat json files with `filename` key added into jsonl file
+    #[clap(aliases = &["ndjson"])]
     Jsonl(jsonl::CmdArgs),
     /// Split jsonl into json files
     Split(split_jsonl::CmdArgs),
@@ -41,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Svg(args) => lm2svg::cmd(args),
         Command::Validate(args) => validate::cmd(args),
         Command::Swap(args) => swap_prefix::cmd(args),
-        Command::Jsonl(args) => jsonl::cmd_jsonl(args),
+        Command::Jsonl(args) => jsonl::cmd(args),
         Command::Split(args) => split_jsonl::cmd(args),
         Command::Filter(args) => filter::cmd(args),
     }
