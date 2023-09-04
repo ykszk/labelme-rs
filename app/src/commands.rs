@@ -15,6 +15,7 @@ mod validate;
 mod jsonl;
 mod split_jsonl;
 mod filter;
+mod drop_dups;
 
 #[derive(Subcommand)]
 enum Command {
@@ -33,6 +34,8 @@ enum Command {
     Split(split_jsonl::CmdArgs),
     /// Filter jsonl based on validation result
     Filter(filter::CmdArgs),
+    /// Drop duplicates except for the first occurrence
+    Drop(drop_dups::CmdArgs)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,5 +48,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Jsonl(args) => jsonl::cmd(args),
         Command::Split(args) => split_jsonl::cmd(args),
         Command::Filter(args) => filter::cmd(args),
+        Command::Drop(args) => drop_dups::cmd(args)
     }
 }
