@@ -8,12 +8,12 @@ default-members=["app"]
 resolver = "2"
 
 [workspace.package]
-version = "0.7.1"
+version = "0.8.0"
 authors = ["Yuki SUZUKI <y-suzuki@radiol.med.osaka-u.ac.jp>"]
 edition = "2021"
 repository = "https://github.com/ykszk/labelme-rs"
 description = """
-My utility tools for labelme.
+My utility tools for labelme and ndjson.
 
 Check the repository (https://github.com/ykszk/labelme-rs) for details.
 """

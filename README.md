@@ -86,6 +86,13 @@ TL == TR
 BL == BR
 ```
 
+## drop
+Drop duplicates except for the first occurrence
+
+```console
+cat 1.ndjson 2.ndjson | lmrs drop --key id
+```
+
 # Python binding
 
 ```console
