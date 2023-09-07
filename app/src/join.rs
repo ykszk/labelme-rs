@@ -86,24 +86,19 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         IndexMap::with_capacity(ndjsons.iter().map(|e| e.len()).min().unwrap());
     for ndjson in ndjsons?.into_iter() {
         for json in ndjson {
+            let json_map = &mut json_map;
             let value = json
                 .get(&args.key)
                 .unwrap_or_else(|| panic!("Key {} not found", args.key));
-            match value {
-                jzon::JsonValue::Short(s) => {
-                    let v = json_map.entry(s.to_string()).or_insert_with(Vec::new);
-                    v.push(json);
-                }
-                jzon::JsonValue::String(s) => {
-                    let v = json_map.entry(s.to_string()).or_insert_with(Vec::new);
-                    v.push(json);
-                }
-                _ => panic!("Key value is not a string: {}", value),
-            };
+            if let Some(s) = value.as_str() {
+                let v = json_map.entry(s.to_string()).or_insert_with(Vec::new);
+                v.push(json);
+            } else {
+                panic!("Key value is not a string: {}", value);
+            }
         }
     }
     debug!("Join");
-    // TODO: test!
     for (_, jsons) in json_map.into_iter() {
         match args.mode {
             JoinMode::Inner => {
