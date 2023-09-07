@@ -31,54 +31,44 @@ enum JoinMode {
     Outer,
 }
 
-type JsonObject = serde_json::Map<String, serde_json::Value>;
+type JzonObject = jzon::JsonValue;
 
-fn load_ndjson(input: &Path) -> Result<Vec<JsonObject>, Box<dyn std::error::Error>> {
+trait ParseStr: Sized {
+    fn parse_str(s: &str) -> Result<Self, Box<dyn std::error::Error>>;
+    fn to_line(self) -> Result<String, Box<dyn std::error::Error>>;
+}
+
+type SerdeJzonObject = serde_json::Map<String, serde_json::Value>;
+impl ParseStr for SerdeJzonObject {
+    fn parse_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let o = serde_json::from_str(s);
+        o.map_err(|e| e.into())
+    }
+    fn to_line(self) -> Result<String, Box<dyn std::error::Error>> {
+        serde_json::to_string(&self).map_err(|e| e.into())
+    }
+}
+
+impl ParseStr for JzonObject {
+    fn parse_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        jzon::parse(s).map_err(|e| e.into())
+    }
+    fn to_line(self) -> Result<String, Box<dyn std::error::Error>> {
+        Ok(self.to_string())
+    }
+}
+
+fn load_ndjson<T: ParseStr>(input: &Path) -> Result<Vec<T>, Box<dyn std::error::Error>> {
     let reader: Box<dyn BufRead> = if input.as_os_str() == "-" {
         Box::new(BufReader::new(std::io::stdin()))
     } else {
         Box::new(BufReader::new(File::open(input).unwrap()))
     };
-    let ndjson: Result<Vec<JsonObject>, _> = reader
+    let ndjson: Result<Vec<T>, _> = reader
         .lines()
-        .map(|line| {
-            line.map_err(|e| e.into())
-                .and_then(|l| serde_json::from_str(&l).map_err(|e| e.into()))
-        })
+        .map(|line| line.map_err(|e| e.into()).and_then(|l| T::parse_str(&l)))
         .collect();
     ndjson
-}
-
-fn join(left: &mut JsonObject, right: JsonObject) {
-    for (key, r_value) in right.into_iter() {
-        let entry = left.entry(key);
-        match entry {
-            // maybe later: could not use ok_modify().or_insert()
-            serde_json::map::Entry::Vacant(entry) => {
-                entry.insert(r_value);
-            }
-            serde_json::map::Entry::Occupied(mut l_value) => match l_value.get_mut() {
-                serde_json::Value::Array(l) => {
-                    if let serde_json::Value::Array(r) = r_value {
-                        l.extend(r);
-                    } else {
-                        panic!("Inconsistent types found at ?. Array vs ?");
-                    };
-                }
-                serde_json::Value::Object(l) => {
-                    if let serde_json::Value::Object(r) = r_value {
-                        join(l, r);
-                    } else {
-                        panic!("Inconsistent types found at ?. Array vs ?");
-                    };
-                }
-                l => panic!(
-                    "Trying to join to invalid type other than array or map: {:?} vs {:?}",
-                    l, r_value
-                ),
-            },
-        };
-    }
 }
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -90,22 +80,27 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Need more than one input".into());
     }
     debug!("Read ndjsons");
-    let ndjsons: Result<Vec<Vec<JsonObject>>, _> =
+    let ndjsons: Result<Vec<Vec<JzonObject>>, _> =
         input_set.iter().map(|input| load_ndjson(input)).collect();
     debug!("Create map");
-    let mut json_map: HashMap<String, Vec<JsonObject>> =
+    let mut json_map: HashMap<String, Vec<JzonObject>> =
         HashMap::with_capacity(ndjsons.iter().map(|e| e.len()).min().unwrap());
     for ndjson in ndjsons?.into_iter() {
         for json in ndjson {
             let value = json
                 .get(&args.key)
                 .unwrap_or_else(|| panic!("Key {} not found", args.key));
-            if let serde_json::Value::String(value) = value {
-                let v = json_map.entry(value.clone()).or_insert_with(Vec::new);
-                v.push(json);
-            } else {
-                panic!("Key value is not a string: {}", value);
-            }
+            match value {
+                jzon::JsonValue::Short(s) => {
+                    let v = json_map.entry(s.to_string()).or_insert_with(Vec::new);
+                    v.push(json);
+                }
+                jzon::JsonValue::String(s) => {
+                    let v = json_map.entry(s.to_string()).or_insert_with(Vec::new);
+                    v.push(json);
+                }
+                _ => panic!("Key value is not a string: {}", value),
+            };
         }
     }
     debug!("Join");
@@ -120,12 +115,12 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             JoinMode::Right => panic!("`--mode right` is not implemented"),
             JoinMode::Outer => {}
         }
-        let joined = jsons.into_iter().reduce(|mut a, mut b| {
+        let joined: Option<jzon::JsonValue> = jsons.into_iter().reduce(|mut a, mut b| {
             b.remove(&args.key);
-            join(&mut a, b);
+            dsl::merge(&mut a, b);
             a
         });
-        let line = serde_json::to_string(&joined)?;
+        let line = joined.unwrap().to_string();
         println!("{line}");
     }
     debug!("Done");

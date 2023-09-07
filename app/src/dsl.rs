@@ -308,6 +308,74 @@ impl ResizeParam {
     }
 }
 
+/// Merge `right` object into `left` object
+/// 
+/// ```
+/// let mut o1 = jzon::parse(r#"{"a": "b"}"#).unwrap();
+/// let o2 = jzon::parse(r#"{"c": "d"}"#).unwrap();
+/// dsl::merge(&mut o1, o2);
+/// assert_eq!(o1.to_string(), r#"{"a":"b","c":"d"}"#);
+/// 
+/// let mut o1 = jzon::parse(r#"{"a": [1]}"#).unwrap();
+/// let o2 = jzon::parse(r#"{"a": [2]}"#).unwrap();
+/// dsl::merge(&mut o1, o2);
+/// assert_eq!(o1.to_string(), r#"{"a":[1,2]}"#);
+/// 
+/// let mut o1 = jzon::parse(r#"{"a": {"b":1}}"#).unwrap();
+/// let o2 = jzon::parse(r#"{"a": {"c":1}}"#).unwrap();
+/// dsl::merge(&mut o1, o2);
+/// assert_eq!(o1.to_string(), r#"{"a":{"b":1,"c":1}}"#);
+/// ```
+///
+/// ```should_panic
+/// let mut o1 = jzon::parse(r#"{"a": "b"}"#).unwrap();
+/// let o2 = jzon::parse(r#"{"a": "d"}"#).unwrap();
+/// dsl::merge(&mut o1, o2);
+/// ```
+/// ```should_panic
+/// let mut o1 = jzon::parse(r#"{"a": {"b":1}}"#).unwrap();
+/// let o2 = jzon::parse(r#"{"a": {"b":2}}"#).unwrap();
+/// dsl::merge(&mut o1, o2);
+/// ```
+pub fn merge(left: &mut jzon::JsonValue, right: jzon::JsonValue) {
+    let left = if let jzon::JsonValue::Object(left) = left {
+        left
+    } else {
+        panic!("Invalid json input");
+    };
+    let right = if let jzon::JsonValue::Object(right) = right {
+        right
+    } else {
+        panic!("Invalid json input");
+    };
+    for (key, r_value) in right.into_iter() {
+        if let Some(l_value) = left.get_mut(&key) {
+            match l_value {
+                jzon::JsonValue::Array(l) => {
+                    if let jzon::JsonValue::Array(r) = r_value {
+                        l.extend(r);
+                    } else {
+                        panic!("Invalid right-hand side type {:?} for left-hand side type (Array)", r_value);
+                    };
+                }
+                jzon::JsonValue::Object(_) => {
+                    if let jzon::JsonValue::Object(_) = r_value {
+                        merge(l_value, r_value);
+                    } else {
+                        panic!("Invalid right-hand side type {:?} for left-hand side type (Object/Map)", r_value);
+                    };
+                }
+                l => panic!(
+                    "Trying to join to invalid type other than array or map: {:?} vs {:?}",
+                    l, r_value
+                ),
+            }
+        } else {
+            left.insert(&key, r_value)
+        }
+    }
+}
+
 #[test]
 fn test_check_json() {
     use std::path::PathBuf;
