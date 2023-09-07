@@ -1,7 +1,6 @@
 use clap::{Args, ValueEnum};
-use labelme_rs::indexmap::IndexSet;
+use labelme_rs::indexmap::{IndexMap, IndexSet};
 use labelme_rs::serde_json;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -83,8 +82,8 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     let ndjsons: Result<Vec<Vec<JzonObject>>, _> =
         input_set.iter().map(|input| load_ndjson(input)).collect();
     debug!("Create map");
-    let mut json_map: HashMap<String, Vec<JzonObject>> =
-        HashMap::with_capacity(ndjsons.iter().map(|e| e.len()).min().unwrap());
+    let mut json_map: IndexMap<String, Vec<JzonObject>> =
+        IndexMap::with_capacity(ndjsons.iter().map(|e| e.len()).min().unwrap());
     for ndjson in ndjsons?.into_iter() {
         for json in ndjson {
             let value = json
@@ -104,6 +103,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     debug!("Join");
+    // TODO: test!
     for (_, jsons) in json_map.into_iter() {
         match args.mode {
             JoinMode::Inner => {
