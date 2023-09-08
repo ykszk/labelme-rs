@@ -18,14 +18,12 @@ pub struct CmdArgs {
     mode: JoinMode,
 }
 
-#[derive(ValueEnum, Debug, Clone)]
+#[derive(ValueEnum, Debug, Copy, Clone)]
 enum JoinMode {
     /// Inner
     Inner,
     /// Left inner
     Left,
-    /// Right inner
-    Right,
     /// Outer
     Outer,
 }
@@ -57,17 +55,83 @@ impl ParseStr for JzonObject {
     }
 }
 
-fn load_ndjson<T: ParseStr>(input: &Path) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+fn load_ndjson(
+    input: &Path,
+    key: &str,
+) -> Result<IndexMap<String, JzonObject>, Box<dyn std::error::Error>> {
     let reader: Box<dyn BufRead> = if input.as_os_str() == "-" {
         Box::new(BufReader::new(std::io::stdin()))
     } else {
         Box::new(BufReader::new(File::open(input).unwrap()))
     };
-    let ndjson: Result<Vec<T>, _> = reader
+    let ndjson: Result<IndexMap<String, JzonObject>, Box<dyn std::error::Error>> = reader
         .lines()
-        .map(|line| line.map_err(|e| e.into()).and_then(|l| T::parse_str(&l)))
+        .map(|line| {
+            line.map_err(|e| e.into())
+                .and_then(|l| JzonObject::parse_str(&l))
+                .and_then(|obj| match obj.get(key) {
+                    Some(value) => {
+                        if let Some(s) = value.as_str() {
+                            Ok((s.to_string(), obj))
+                        } else {
+                            panic!("Value for the key is not a string");
+                        }
+                    }
+                    None => {
+                        panic!("Key {} not found", key)
+                    }
+                })
+                .map(|(s, mut obj)| {
+                    obj.remove(key);
+                    (s, obj)
+                })
+        })
         .collect();
     ndjson
+}
+
+fn join_inner(
+    left: IndexMap<String, JzonObject>,
+    mut right: IndexMap<String, JzonObject>,
+) -> IndexMap<String, JzonObject> {
+    left.into_iter()
+        .filter_map(|(key, mut left_obj)| {
+            right.remove(&key).map(|right_obj| {
+                dsl::merge(&mut left_obj, right_obj);
+                (key, left_obj)
+            })
+        })
+        .collect()
+}
+
+fn join_left(
+    mut left: IndexMap<String, JzonObject>,
+    right: IndexMap<String, JzonObject>,
+) -> IndexMap<String, JzonObject> {
+    for (key, right_obj) in right.into_iter() {
+        left.entry(key).and_modify(|left_obj| {
+            dsl::merge(left_obj, right_obj);
+        });
+    }
+    left
+}
+
+fn join_outer(
+    mut left: IndexMap<String, JzonObject>,
+    right: IndexMap<String, JzonObject>,
+) -> IndexMap<String, JzonObject> {
+    for (key, right_obj) in right.into_iter() {
+        let entry = left.entry(key);
+        match entry {
+            labelme_rs::indexmap::map::Entry::Occupied(mut left_obj) => {
+                dsl::merge(left_obj.get_mut(), right_obj)
+            }
+            labelme_rs::indexmap::map::Entry::Vacant(entry) => {
+                entry.insert(right_obj);
+            }
+        }
+    }
+    left
 }
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -79,45 +143,44 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Need more than one input".into());
     }
     debug!("Read ndjsons");
-    let ndjsons: Result<Vec<Vec<JzonObject>>, _> =
-        input_set.iter().map(|input| load_ndjson(input)).collect();
+    let ndjsons: Result<Vec<IndexMap<String, JzonObject>>, _> = input_set
+        .iter()
+        .map(|input| load_ndjson(input, &args.key))
+        .collect();
     debug!("Create map");
-    let mut json_map: IndexMap<String, Vec<JzonObject>> =
-        IndexMap::with_capacity(ndjsons.iter().map(|e| e.len()).min().unwrap());
-    for ndjson in ndjsons?.into_iter() {
-        for json in ndjson {
-            let json_map = &mut json_map;
-            let value = json
-                .get(&args.key)
-                .unwrap_or_else(|| panic!("Key {} not found", args.key));
-            if let Some(s) = value.as_str() {
-                let v = json_map.entry(s.to_string()).or_insert_with(Vec::new);
-                v.push(json);
-            } else {
-                panic!("Key value is not a string: {}", value);
-            }
-        }
-    }
-    debug!("Join");
-    for (_, jsons) in json_map.into_iter() {
-        match args.mode {
-            JoinMode::Inner => {
-                if jsons.len() != input_set.len() {
-                    continue;
-                }
-            }
-            JoinMode::Left => panic!("`--mode left` is not implemented"),
-            JoinMode::Right => panic!("`--mode right` is not implemented"),
-            JoinMode::Outer => {}
-        }
-        let joined: Option<jzon::JsonValue> = jsons.into_iter().reduce(|mut a, mut b| {
-            b.remove(&args.key);
-            dsl::merge(&mut a, b);
-            a
-        });
-        let line = joined.unwrap().to_string();
-        println!("{line}");
+    let joined = ndjsons?
+        .into_iter()
+        .reduce(match args.mode {
+            JoinMode::Inner => join_inner,
+            JoinMode::Left => join_left,
+            JoinMode::Outer => join_outer,
+        })
+        .unwrap();
+    for (key, mut obj) in joined {
+        obj.insert(&args.key, key).unwrap();
+        let line = obj.to_string();
+        println!("{}", line);
     }
     debug!("Done");
     Ok(())
+}
+
+#[test]
+fn test_join() {
+    let l: IndexMap<String, JzonObject> =
+        IndexMap::from([("k1".into(), jzon::parse("{}").unwrap())]);
+    let r: IndexMap<String, JzonObject> =
+        IndexMap::from([("k2".into(), jzon::parse("{}").unwrap())]);
+
+    let joined = join_inner(l.clone(), r.clone());
+    assert!(!joined.contains_key("k1"));
+    assert!(!joined.contains_key("k2"));
+
+    let joined = join_left(l.clone(), r.clone());
+    assert!(joined.contains_key("k1"));
+    assert!(!joined.contains_key("k2"));
+
+    let joined = join_outer(l, r);
+    assert!(joined.contains_key("k1"));
+    assert!(joined.contains_key("k2"));
 }
