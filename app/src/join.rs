@@ -92,8 +92,9 @@ fn load_ndjson(
 
 fn join_inner(
     left: IndexMap<String, JzonObject>,
-    mut right: IndexMap<String, JzonObject>,
+    right: IndexMap<String, JzonObject>,
 ) -> IndexMap<String, JzonObject> {
+    let mut right = right;
     left.into_iter()
         .filter_map(|(key, mut left_obj)| {
             right.remove(&key).map(|right_obj| {
@@ -105,9 +106,10 @@ fn join_inner(
 }
 
 fn join_left(
-    mut left: IndexMap<String, JzonObject>,
+    left: IndexMap<String, JzonObject>,
     right: IndexMap<String, JzonObject>,
 ) -> IndexMap<String, JzonObject> {
+    let mut left = left;
     for (key, right_obj) in right.into_iter() {
         left.entry(key).and_modify(|left_obj| {
             dsl::merge(left_obj, right_obj);
@@ -117,9 +119,10 @@ fn join_left(
 }
 
 fn join_outer(
-    mut left: IndexMap<String, JzonObject>,
+    left: IndexMap<String, JzonObject>,
     right: IndexMap<String, JzonObject>,
 ) -> IndexMap<String, JzonObject> {
+    let mut left = left;
     for (key, right_obj) in right.into_iter() {
         let entry = left.entry(key);
         match entry {
@@ -142,21 +145,22 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     if input_set.len() <= 1 {
         return Err("Need more than one input".into());
     }
-    debug!("Read ndjsons");
-    let ndjsons: Result<Vec<IndexMap<String, JzonObject>>, _> = input_set
+    debug!("Read and join ndjsons");
+    let joined: Result<IndexMap<String, JzonObject>, _> = input_set
         .iter()
         .map(|input| load_ndjson(input, &args.key))
-        .collect();
-    debug!("Create map");
-    let joined = ndjsons?
-        .into_iter()
-        .reduce(match args.mode {
-            JoinMode::Inner => join_inner,
-            JoinMode::Left => join_left,
-            JoinMode::Outer => join_outer,
+        .reduce(|l, r| {
+            l.and_then(|l| {
+                r.map(|r| match args.mode {
+                    JoinMode::Inner => join_inner(l, r),
+                    JoinMode::Left => join_left(l, r),
+                    JoinMode::Outer => join_outer(l, r),
+                })
+            })
         })
         .unwrap();
-    for (key, mut obj) in joined {
+    debug!("Print result");
+    for (key, mut obj) in joined? {
         obj.insert(&args.key, key).unwrap();
         let line = obj.to_string();
         println!("{}", line);

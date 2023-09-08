@@ -310,28 +310,42 @@ impl ResizeParam {
 
 /// Merge `right` object into `left` object
 /// 
+/// # Examples
+/// 
+/// Two JSON objects with no common key.
 /// ```
 /// let mut o1 = jzon::parse(r#"{"a": "b"}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"c": "d"}"#).unwrap();
 /// dsl::merge(&mut o1, o2);
 /// assert_eq!(o1.to_string(), r#"{"a":"b","c":"d"}"#);
+/// ```
 /// 
+/// Merging arrays.
+/// ```
 /// let mut o1 = jzon::parse(r#"{"a": [1]}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": [2]}"#).unwrap();
 /// dsl::merge(&mut o1, o2);
 /// assert_eq!(o1.to_string(), r#"{"a":[1,2]}"#);
+/// ```
 /// 
+/// Merging objects.
+/// ```
 /// let mut o1 = jzon::parse(r#"{"a": {"b":1}}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": {"c":1}}"#).unwrap();
 /// dsl::merge(&mut o1, o2);
 /// assert_eq!(o1.to_string(), r#"{"a":{"b":1,"c":1}}"#);
 /// ```
 ///
+/// # Bad examples
+/// 
+/// Merging two objects with the duplicated keys
 /// ```should_panic
 /// let mut o1 = jzon::parse(r#"{"a": "b"}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": "d"}"#).unwrap();
 /// dsl::merge(&mut o1, o2);
 /// ```
+/// 
+/// Merging two nested objects with the duplicated keys
 /// ```should_panic
 /// let mut o1 = jzon::parse(r#"{"a": {"b":1}}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": {"b":2}}"#).unwrap();
