@@ -93,6 +93,13 @@ Drop duplicates except for the first occurrence
 cat 1.ndjson 2.ndjson | lmrs drop --key id
 ```
 
+## join
+Join ndjson files
+
+```console
+lmrs join left.ndjson right.ndjson
+```
+
 # Python binding
 
 ```console

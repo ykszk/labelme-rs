@@ -1,3 +1,7 @@
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 use clap::{Parser, Subcommand};
 #[macro_use]
 extern crate log;
@@ -8,15 +12,16 @@ struct Cli {
     #[clap(subcommand)]
     command: Command,
 }
+
+mod drop_dups;
+mod filter;
+mod join;
+mod jsonl;
 mod lm2svg;
 mod lms2html;
+mod split_jsonl;
 mod swap_prefix;
 mod validate;
-mod jsonl;
-mod split_jsonl;
-mod filter;
-mod drop_dups;
-mod join;
 
 #[derive(Subcommand)]
 enum Command {
