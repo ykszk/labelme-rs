@@ -102,7 +102,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
     let json_dir: PathBuf = if args.input.is_dir() {
         args.input.clone()
-    } else if args.input.as_os_str() == "-"  {
+    } else if args.input.as_os_str() == "-" {
         PathBuf::from(".")
     } else {
         args.input.parent().unwrap().into()
@@ -135,8 +135,10 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let original_dir = std::env::current_dir().expect("Failed to acquire cwd");
-    std::env::set_current_dir(&json_dir)
-        .unwrap_or_else(|_| panic!("Failed to change directory to {:?}", json_dir));
+    if args.image_dir.is_none() {
+        std::env::set_current_dir(&json_dir)
+            .unwrap_or_else(|_| panic!("Failed to change directory to {:?}", json_dir));
+    }
     std::thread::scope(|scope| {
         let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
         let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
@@ -148,12 +150,12 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                     let input = &mut entry.0;
                     let json_data = &mut entry.1;
 
+                    let image_path = json_data.imagePath.replace('\\', "/");
                     let img_filename = if let Some(image_dir) = &args.image_dir {
-                        let image_path = json_data.imagePath.replace('\\', "/");
                         let filename = Path::new(&image_path).file_name().unwrap();
                         image_dir.join(filename)
                     } else {
-                        let p = PathBuf::from(&json_data.imagePath);
+                        let p = PathBuf::from(&image_path);
                         p.canonicalize().unwrap_or_else(|_| {
                             panic!("Failed to canonicalize {}", json_data.imagePath)
                         })
@@ -231,8 +233,10 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         shared_bar.lock().unwrap().finish();
     };
     info!("Generate html");
-    std::env::set_current_dir(original_dir)
-        .unwrap_or_else(|_| panic!("Failed to change directory to {:?}", json_dir));
+    if original_dir != std::env::current_dir().expect("Failed to acquire cwd") {
+        std::env::set_current_dir(original_dir)
+            .unwrap_or_else(|_| panic!("Failed to change directory back to {:?}", json_dir));
+    }
     let tag_cbs = all_tags
         .iter()
         .filter_map(|(tag, checked)| {
