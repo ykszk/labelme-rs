@@ -1,7 +1,7 @@
-<div onclick="zoom(this)" id="{{name}}" class="img {{tags}}" title="{{title}}">
+<div id="{{name}}" class="img {{tags}}" title="{{title}}">
     <figure>
         <figcaption>{{name}}</figcaption>
         {{svg}}
-        <figcaption>{{flags}}</figcaption>
+        <figcaption>{{flags}}<span class="zoom" onclick="zoom(this)">🔎</span></figcaption>
     </figure>
 </div>

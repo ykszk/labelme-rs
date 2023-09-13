@@ -50,6 +50,15 @@ div.box {
     height: .8em;
     display: inline-block;
 }
+
 div.legend div {
     margin: .2em;
+}
+
+div#zoom {
+    cursor: zoom-out;
+}
+
+span.zoom {
+    cursor: zoom-in;
 }

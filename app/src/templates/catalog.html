@@ -40,7 +40,7 @@
                 elm.setAttribute(attr, multiplier * Number(elm.getAttribute(attr)))
             }
             function zoom(caller) {
-                const div = caller.cloneNode(true);
+                const div = caller.parentNode.parentNode.parentNode.cloneNode(true);
                 const div_zoom = document.getElementById('zoom');
                 const svg = div.querySelector('svg');
                 svg.setAttribute("transform", "scale(2)");
