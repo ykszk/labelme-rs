@@ -1,6 +1,6 @@
 use clap::Args;
 use labelme_rs::image::GenericImageView;
-use std::path::PathBuf;
+use std::{io::Read, path::PathBuf};
 
 #[derive(Debug, Args)]
 pub struct CmdArgs {
@@ -26,18 +26,27 @@ use labelme_rs::{load_label_colors, LabelColorsHex};
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let mut json_data = labelme_rs::LabelMeData::try_from(args.input.as_path())?;
+    let mut json_data = labelme_rs::LabelMeData::try_from(if args.input.as_os_str() == "-" {
+        let mut buf = String::new();
+        std::io::stdin().read_to_string(&mut buf)?;
+        buf
+    } else {
+        std::fs::read_to_string(&args.input)?
+    })?;
     let label_colors = match args.config {
         Some(config) => load_label_colors(&config)?,
         None => LabelColorsHex::new(),
     };
 
     let original_dir = std::env::current_dir()?;
-    let json_dir = args
-        .input
-        .parent()
-        .unwrap_or_else(|| panic!("Failed to find parent directory of {:?}", args.input));
-    std::env::set_current_dir(json_dir)?;
+    let json_dir: PathBuf = if args.input.is_dir() {
+        args.input.clone()
+    } else if args.input.as_os_str() == "-" {
+        PathBuf::from(".")
+    } else {
+        args.input.parent().unwrap().into()
+    };
+    std::env::set_current_dir(&json_dir)?;
 
     let img_filename = json_dir.join(&json_data.imagePath);
     std::env::set_current_dir(original_dir)?;

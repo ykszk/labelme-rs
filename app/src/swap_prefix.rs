@@ -10,7 +10,7 @@ pub struct CmdArgs {
     input: PathBuf,
     /// New imagePath prefix
     prefix: String,
-    /// Output json filename or output directory
+    /// Output json filename or output directory. Defaults: <INPUT> for directory or single file input, stdout for jsonl/ndjson input.
     output: Option<PathBuf>,
     /// Swap prefix of the value associated by the given key instead of `imagePath`
     #[clap(long, default_value = "imagePath")]

@@ -257,6 +257,13 @@ impl TryFrom<&str> for LabelMeData {
     }
 }
 
+impl TryFrom<String> for LabelMeData {
+    type Error = serde_json::Error;
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        serde_json::from_str(&s)
+    }
+}
+
 impl TryFrom<&Path> for LabelMeData {
     type Error = Box<dyn Error>;
     fn try_from(filename: &Path) -> Result<Self, Self::Error> {
