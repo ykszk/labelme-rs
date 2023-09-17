@@ -8,6 +8,12 @@ Or compile from the source code:
 cargo install --git https://github.com/ykszk/labelme-rs
 ```
 
+## Auto-completion
+For fish shell:
+```console
+cargo xtask complete fish -install
+```
+
 # Usage
 
 Invoke commands like so:

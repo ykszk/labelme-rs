@@ -1,23 +1,9 @@
-use clap::Args;
 use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-#[derive(Debug, Args)]
-pub struct CmdArgs {
-    /// Input jsonl filename. Stdin is used if omitted
-    input: Option<PathBuf>,
-    /// Output directory. Working directory is used by default
-    #[clap(short, long)]
-    output: Option<PathBuf>,
-    /// Key for filename
-    #[clap(long, default_value = "filename", id = "key")]
-    filename: String,
-    /// Overwrite json files if exist
-    #[clap(long, action)]
-    overwrite: bool,
-}
+use lmrs::cli::SplitCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();

@@ -1,37 +1,11 @@
-use clap::Args;
 use glob::glob;
 use labelme_rs::indexmap::IndexSet;
-use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
 
-#[derive(Args, Debug)]
-pub struct CmdArgs {
-    /// Rules
-    rules: PathBuf,
-    /// Input directory
-    input: PathBuf,
-    /// Check only json files containing given flag(s). Multiple flags are concatenated by OR.
-    #[clap(short, long)]
-    flag: Vec<String>,
-    /// Ignore json files containing given flag(s). Multiple flags are concatenated by OR.
-    #[clap(short, long)]
-    ignore: Vec<String>,
-    /// Additional rules
-    #[clap(short, long)]
-    additional: Vec<PathBuf>,
-    /// Report stats at the end
-    #[clap(short, long)]
-    stats: bool,
-    /// Set verbosity
-    #[clap(short, long, action = clap::ArgAction::Count)]
-    verbose: usize,
-    /// Set the number of threads
-    #[clap(short, long, default_value_t = 0)]
-    threads: usize,
-}
+use lmrs::cli::ValidateCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     let verbosity = args.verbose;

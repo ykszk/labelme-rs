@@ -1,28 +1,8 @@
-use clap::Args;
 use labelme_rs::image::GenericImageView;
 use std::{io::Read, path::PathBuf};
 
-#[derive(Debug, Args)]
-pub struct CmdArgs {
-    /// Input json filename
-    input: PathBuf,
-    /// Output svg filename
-    output: PathBuf,
-    /// Config filename. Used for `label_colors`
-    #[clap(short, long)]
-    config: Option<PathBuf>,
-    /// Circle radius
-    #[clap(long, default_value = "2")]
-    radius: usize,
-    /// Line width
-    #[clap(long, default_value = "2")]
-    line_width: usize,
-    /// Resize image. Specify in imagemagick's `-resize`-like format
-    #[clap(long)]
-    resize: Option<String>,
-}
-
 use labelme_rs::{load_label_colors, LabelColorsHex};
+use lmrs::cli::SvgCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();

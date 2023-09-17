@@ -1,18 +1,9 @@
-use clap::Args;
 use labelme_rs::serde_json;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
 
-#[derive(Debug, Args)]
-pub struct CmdArgs {
-    /// Input ndjson. Specify "-" to use stdin
-    input: PathBuf,
-    /// Key for duplicate checking
-    #[clap(long, default_value = "filename")]
-    key: String,
-}
+use lmrs::cli::DropCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();

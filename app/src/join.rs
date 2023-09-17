@@ -1,34 +1,12 @@
-use clap::{Args, ValueEnum};
 use labelme_rs::indexmap::{IndexMap, IndexSet};
 use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Args)]
-pub struct CmdArgs {
-    /// Input ndjson. Specify "-" to use stdin
-    #[clap(required=true, num_args=2..)]
-    input: Vec<PathBuf>,
-    /// Key to join based on
-    #[clap(long, default_value = "filename")]
-    key: String,
-    /// Join mode
-    #[clap(long, default_value = "outer")]
-    mode: JoinMode,
-}
-
-#[derive(ValueEnum, Debug, Copy, Clone)]
-enum JoinMode {
-    /// Inner
-    Inner,
-    /// Left inner
-    Left,
-    /// Outer
-    Outer,
-}
-
 type JzonObject = jzon::JsonValue;
+use lmrs::cli::JoinCmdArgs as CmdArgs;
+use lmrs::cli::JoinMode;
 
 trait ParseStr: Sized {
     fn parse_str(s: &str) -> Result<Self, Box<dyn std::error::Error>>;

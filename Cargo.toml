@@ -3,6 +3,7 @@ members = [
     "labelme-rs",
     "app",
     "lmrspy",
+    "xtask"
 ]
 default-members=["app"]
 resolver = "2"

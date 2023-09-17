@@ -14,6 +14,8 @@ use std::{
 #[macro_use]
 extern crate lazy_static;
 
+pub mod cli;
+
 #[derive(Clone, Debug)]
 pub enum Expr {
     Num(isize),
@@ -309,9 +311,9 @@ impl ResizeParam {
 }
 
 /// Merge `right` object into `left` object
-/// 
+///
 /// # Examples
-/// 
+///
 /// Two JSON objects with no common key.
 /// ```
 /// let mut o1 = jzon::parse(r#"{"a": "b"}"#).unwrap();
@@ -319,7 +321,7 @@ impl ResizeParam {
 /// lmrs::merge(&mut o1, o2);
 /// assert_eq!(o1.to_string(), r#"{"a":"b","c":"d"}"#);
 /// ```
-/// 
+///
 /// Merging arrays.
 /// ```
 /// let mut o1 = jzon::parse(r#"{"a": [1]}"#).unwrap();
@@ -327,7 +329,7 @@ impl ResizeParam {
 /// lmrs::merge(&mut o1, o2);
 /// assert_eq!(o1.to_string(), r#"{"a":[1,2]}"#);
 /// ```
-/// 
+///
 /// Merging objects.
 /// ```
 /// let mut o1 = jzon::parse(r#"{"a": {"b":1}}"#).unwrap();
@@ -337,14 +339,14 @@ impl ResizeParam {
 /// ```
 ///
 /// # Bad examples
-/// 
+///
 /// Merging two objects with the duplicated keys
 /// ```should_panic
 /// let mut o1 = jzon::parse(r#"{"a": "b"}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": "d"}"#).unwrap();
 /// lmrs::merge(&mut o1, o2);
 /// ```
-/// 
+///
 /// Merging two nested objects with the duplicated keys
 /// ```should_panic
 /// let mut o1 = jzon::parse(r#"{"a": {"b":1}}"#).unwrap();
@@ -369,7 +371,10 @@ pub fn merge(left: &mut jzon::JsonValue, right: jzon::JsonValue) {
                     if let jzon::JsonValue::Array(r) = r_value {
                         l.extend(r);
                     } else {
-                        panic!("Invalid right-hand side type {:?} for left-hand side type (Array)", r_value);
+                        panic!(
+                            "Invalid right-hand side type {:?} for left-hand side type (Array)",
+                            r_value
+                        );
                     };
                 }
                 jzon::JsonValue::Object(_) => {

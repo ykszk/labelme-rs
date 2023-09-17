@@ -1,4 +1,3 @@
-use clap::Args;
 use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::IndexMap;
 use labelme_rs::serde_json;
@@ -7,43 +6,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug, Args)]
-pub struct CmdArgs {
-    /// Input labelme directory or jsonl with `filename` data (e.g. output of `lmrs jsonl`).
-    /// Specify "-" to use stdin as input
-    input: PathBuf,
-    /// Output html filename
-    output: PathBuf,
-    /// Config filename. Used for `label_colors`
-    #[clap(short, long)]
-    config: Option<PathBuf>,
-    /// Flags filename. Used to sort flags
-    #[clap(short, long)]
-    flags: Option<PathBuf>,
-    /// Circle radius
-    #[clap(long, default_value = "2")]
-    radius: usize,
-    /// Line width
-    #[clap(long, default_value = "2")]
-    line_width: usize,
-    /// Resize image. Specify in imagemagick's `-resize`-like format
-    #[clap(long)]
-    resize: Option<String>,
-    /// HTML title
-    #[clap(long, default_value = "catalog")]
-    title: String,
-    /// CSS filename
-    #[clap(long)]
-    css: Option<PathBuf>,
-    /// Override imagePath's directory
-    #[clap(long)]
-    image_dir: Option<PathBuf>,
-    /// The number of jobs. Use all available cores by default.
-    #[clap(short, long)]
-    jobs: Option<usize>,
-}
-
 use labelme_rs::{load_label_colors, LabelColorsHex};
+use lmrs::cli::HtmlCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();

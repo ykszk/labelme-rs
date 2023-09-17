@@ -1,26 +1,8 @@
-use clap::Args;
 use labelme_rs::indexmap::IndexSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
 
-#[derive(Args, Debug)]
-pub struct CmdArgs {
-    /// Input jsonl filename. Specify '-' to use stdin
-    input: PathBuf,
-    /// Text file(s) containing rules
-    #[clap(short, long)]
-    rules: Vec<PathBuf>,
-    /// Check only json files containing given flag(s). Multiple flags are concatenated by OR.
-    #[clap(short, long)]
-    flag: Vec<String>,
-    /// Ignore json files containing given flag(s). Multiple flags are concatenated by OR.
-    #[clap(short, long)]
-    ignore: Vec<String>,
-    /// Invert filtering. i.e. output invalid lines
-    #[clap(long, action)]
-    invert: bool,
-}
+use lmrs::cli::FilterCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     let mut rules: Vec<String> = Vec::new();

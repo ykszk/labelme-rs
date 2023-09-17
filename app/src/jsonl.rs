@@ -1,19 +1,9 @@
-use clap::Args;
 use labelme_rs::serde_json;
-use std::path::PathBuf;
+
+use lmrs::cli::JsonlCmdArgs as CmdArgs;
 
 #[cfg(not(target_os = "windows"))]
 extern crate libc;
-
-#[derive(Debug, Args)]
-pub struct CmdArgs {
-    /// Input json directries
-    #[clap(required=true, num_args=1..)]
-    input: Vec<PathBuf>,
-    /// Key for filename
-    #[clap(long, default_value = "filename", id = "key")]
-    filename: String,
-}
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(target_os = "windows"))]

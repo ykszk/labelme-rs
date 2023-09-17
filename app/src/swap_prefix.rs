@@ -1,21 +1,9 @@
-use clap::Args;
 use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-#[derive(Args, Debug)]
-pub struct CmdArgs {
-    /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for jsonl input with stdin (for piping).
-    input: PathBuf,
-    /// New imagePath prefix
-    prefix: String,
-    /// Output json filename or output directory. Defaults: <INPUT> for directory or single file input, stdout for jsonl/ndjson input.
-    output: Option<PathBuf>,
-    /// Swap prefix of the value associated by the given key instead of `imagePath`
-    #[clap(long, default_value = "imagePath")]
-    key: String,
-}
+use lmrs::cli::SwapCmdArgs as CmdArgs;
 
 trait ImagePath {
     fn image_path(&self) -> &str;
@@ -78,6 +66,8 @@ fn swap_prefix_file(
 
 #[test]
 fn test_swap_prefix() {
+    use std::path::PathBuf;
+
     let key = "imagePath";
     let pretty = true;
     let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
