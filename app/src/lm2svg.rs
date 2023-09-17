@@ -52,7 +52,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     std::env::set_current_dir(original_dir)?;
     let mut img = labelme_rs::image::open(img_filename)?;
     if let Some(resize) = args.resize {
-        let resize_param = dsl::ResizeParam::try_from(resize.as_str())?;
+        let resize_param = lmrs::ResizeParam::try_from(resize.as_str())?;
         let orig_size = img.dimensions();
         img = resize_param.resize(&img);
         let scale = img.dimensions().0 as f64 / orig_size.0 as f64;

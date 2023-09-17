@@ -11,8 +11,8 @@ name = "lmrs"
 path = "src/commands.rs"
 
 [lib]
-name = "dsl"
-path = "src/dsl.rs"
+name = "lmrs"
+path = "src/lib.rs"
 
 [dependencies]
 labelme-rs = { path = "../labelme-rs"}

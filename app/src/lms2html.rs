@@ -130,7 +130,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     };
     let mut svgs: Vec<String> = Vec::with_capacity(entries.len());
     let resize_param = match args.resize {
-        Some(s) => Some(dsl::ResizeParam::try_from(s.as_str())?),
+        Some(s) => Some(lmrs::ResizeParam::try_from(s.as_str())?),
         None => None,
     };
 

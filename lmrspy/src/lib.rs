@@ -3,9 +3,9 @@ use pyo3::prelude::*;
 #[pyclass(subclass)]
 struct Validator {
     rules: Vec<String>,
-    asts: Vec<dsl::Expr>,
-    flags: dsl::FlagSet,
-    ignores: dsl::FlagSet,
+    asts: Vec<lmrs::Expr>,
+    flags: lmrs::FlagSet,
+    ignores: lmrs::FlagSet,
 }
 
 fn concat<T, S: std::fmt::Display>(iterator: T, sep: &str) -> String
@@ -22,9 +22,9 @@ where
 impl Validator {
     #[new]
     fn new(rules: Vec<String>, flag_set: Vec<String>, ignore_set: Vec<String>) -> PyResult<Self> {
-        let flags = dsl::FlagSet::from_iter(flag_set.into_iter());
-        let ignores = dsl::FlagSet::from_iter(ignore_set.into_iter());
-        match dsl::parse_rules(&rules) {
+        let flags = lmrs::FlagSet::from_iter(flag_set.into_iter());
+        let ignores = lmrs::FlagSet::from_iter(ignore_set.into_iter());
+        match lmrs::parse_rules(&rules) {
             Ok(asts) => Ok(Self {
                 rules,
                 asts,
@@ -45,7 +45,7 @@ impl Validator {
     }
 
     fn validate_jsons(&self, json_str: &str) -> PyResult<bool> {
-        let check_result = dsl::check_jsons(
+        let check_result = lmrs::check_jsons(
             &self.rules,
             &self.asts,
             json_str,
@@ -53,7 +53,7 @@ impl Validator {
             &self.ignores,
         );
         let result = match check_result {
-            Ok(result) => Ok(result == dsl::CheckResult::Passed),
+            Ok(result) => Ok(result == lmrs::CheckResult::Passed),
             Err(err) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "NG : {}",
                 err
@@ -64,7 +64,7 @@ impl Validator {
 
     fn validate_json(&self, filename: &str) -> PyResult<bool> {
         let filename = std::path::PathBuf::from(filename);
-        let check_result = dsl::check_json_file(
+        let check_result = lmrs::check_json_file(
             &self.rules,
             &self.asts,
             &filename,
@@ -72,7 +72,7 @@ impl Validator {
             &self.ignores,
         );
         let result = match check_result {
-            Ok(result) => Ok(result == dsl::CheckResult::Passed),
+            Ok(result) => Ok(result == lmrs::CheckResult::Passed),
             Err(err) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "NG : {}",
                 err

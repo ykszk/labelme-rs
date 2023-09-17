@@ -35,12 +35,12 @@ pub struct CmdArgs {
 
 pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     let verbosity = args.verbose;
-    let mut rules = dsl::load_rules(&args.rules)?;
+    let mut rules = lmrs::load_rules(&args.rules)?;
     for filename in args.additional {
-        let ar = dsl::load_rules(&filename)?;
+        let ar = lmrs::load_rules(&filename)?;
         rules.extend(ar);
     }
-    let asts = dsl::parse_rules(&rules)?;
+    let asts = lmrs::parse_rules(&rules)?;
     let indir = &args.input;
     if !indir.exists() {
         return Err(std::io::Error::from(std::io::ErrorKind::NotFound).into());
@@ -74,15 +74,15 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                     match entry {
                         Ok(path) => {
                             let check_result =
-                                dsl::check_json_file(rules, asts, path, flag_set, ignore_set);
+                                lmrs::check_json_file(rules, asts, path, flag_set, ignore_set);
                             let disp_path = path.strip_prefix(indir).unwrap_or(path.as_path());
                             match check_result {
                                 Ok(ret) => {
-                                    if ret == dsl::CheckResult::Passed {
+                                    if ret == lmrs::CheckResult::Passed {
                                         checked_count.fetch_add(1, Ordering::SeqCst);
                                         valid_count.fetch_add(1, Ordering::SeqCst);
                                     }
-                                    if verbosity > 0 && ret != dsl::CheckResult::Skipped {
+                                    if verbosity > 0 && ret != lmrs::CheckResult::Skipped {
                                         println!("{},", disp_path.to_str().unwrap());
                                     }
                                 }

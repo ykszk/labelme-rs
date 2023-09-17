@@ -136,9 +136,9 @@ pub fn load_rules(filename: &Path) -> Result<Vec<String>, Box<dyn std::error::Er
 
 /// Parse rules
 /// ```
-/// let ast = dsl::parse_rules(&vec!["a == b".into()]);
+/// let ast = lmrs::parse_rules(&vec!["a == b".into()]);
 /// assert!(ast.is_ok());
-/// let ast = dsl::parse_rules(&vec!["a = b".into()]);
+/// let ast = lmrs::parse_rules(&vec!["a = b".into()]);
 /// assert!(ast.is_err());
 /// ```
 pub fn parse_rules(rules: &[String]) -> Result<Vec<Expr>, String> {
@@ -278,9 +278,9 @@ impl TryFrom<&str> for ResizeParam {
 
     /// Parse resize parameter
     /// ```
-    /// assert_eq!(dsl::ResizeParam::try_from("33%").unwrap(), dsl::ResizeParam::Percentage(0.33));
-    /// assert_eq!(dsl::ResizeParam::try_from("300x400").unwrap(), dsl::ResizeParam::Size(300, 400));
-    /// assert!(dsl::ResizeParam::try_from("300x400!").is_err()); // Flags `!><^%@` etc. are not supported.
+    /// assert_eq!(lmrs::ResizeParam::try_from("33%").unwrap(), lmrs::ResizeParam::Percentage(0.33));
+    /// assert_eq!(lmrs::ResizeParam::try_from("300x400").unwrap(), lmrs::ResizeParam::Size(300, 400));
+    /// assert!(lmrs::ResizeParam::try_from("300x400!").is_err()); // Flags `!><^%@` etc. are not supported.
     /// ```
     fn try_from(param: &str) -> Result<Self, Self::Error> {
         if let Some(cap) = RE_PERCENT.captures(param) {
@@ -316,7 +316,7 @@ impl ResizeParam {
 /// ```
 /// let mut o1 = jzon::parse(r#"{"a": "b"}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"c": "d"}"#).unwrap();
-/// dsl::merge(&mut o1, o2);
+/// lmrs::merge(&mut o1, o2);
 /// assert_eq!(o1.to_string(), r#"{"a":"b","c":"d"}"#);
 /// ```
 /// 
@@ -324,7 +324,7 @@ impl ResizeParam {
 /// ```
 /// let mut o1 = jzon::parse(r#"{"a": [1]}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": [2]}"#).unwrap();
-/// dsl::merge(&mut o1, o2);
+/// lmrs::merge(&mut o1, o2);
 /// assert_eq!(o1.to_string(), r#"{"a":[1,2]}"#);
 /// ```
 /// 
@@ -332,7 +332,7 @@ impl ResizeParam {
 /// ```
 /// let mut o1 = jzon::parse(r#"{"a": {"b":1}}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": {"c":1}}"#).unwrap();
-/// dsl::merge(&mut o1, o2);
+/// lmrs::merge(&mut o1, o2);
 /// assert_eq!(o1.to_string(), r#"{"a":{"b":1,"c":1}}"#);
 /// ```
 ///
@@ -342,14 +342,14 @@ impl ResizeParam {
 /// ```should_panic
 /// let mut o1 = jzon::parse(r#"{"a": "b"}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": "d"}"#).unwrap();
-/// dsl::merge(&mut o1, o2);
+/// lmrs::merge(&mut o1, o2);
 /// ```
 /// 
 /// Merging two nested objects with the duplicated keys
 /// ```should_panic
 /// let mut o1 = jzon::parse(r#"{"a": {"b":1}}"#).unwrap();
 /// let o2 = jzon::parse(r#"{"a": {"b":2}}"#).unwrap();
-/// dsl::merge(&mut o1, o2);
+/// lmrs::merge(&mut o1, o2);
 /// ```
 pub fn merge(left: &mut jzon::JsonValue, right: jzon::JsonValue) {
     let left = if let jzon::JsonValue::Object(left) = left {

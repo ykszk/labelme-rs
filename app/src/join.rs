@@ -98,7 +98,7 @@ fn join_inner(
     left.into_iter()
         .filter_map(|(key, mut left_obj)| {
             right.remove(&key).map(|right_obj| {
-                dsl::merge(&mut left_obj, right_obj);
+                lmrs::merge(&mut left_obj, right_obj);
                 (key, left_obj)
             })
         })
@@ -112,7 +112,7 @@ fn join_left(
     let mut left = left;
     for (key, right_obj) in right.into_iter() {
         left.entry(key).and_modify(|left_obj| {
-            dsl::merge(left_obj, right_obj);
+            lmrs::merge(left_obj, right_obj);
         });
     }
     left
@@ -127,7 +127,7 @@ fn join_outer(
         let entry = left.entry(key);
         match entry {
             labelme_rs::indexmap::map::Entry::Occupied(mut left_obj) => {
-                dsl::merge(left_obj.get_mut(), right_obj)
+                lmrs::merge(left_obj.get_mut(), right_obj)
             }
             labelme_rs::indexmap::map::Entry::Vacant(entry) => {
                 entry.insert(right_obj);
