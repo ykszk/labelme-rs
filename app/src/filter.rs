@@ -1,10 +1,11 @@
+use anyhow::Result;
 use labelme_rs::indexmap::IndexSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 use lmrs::cli::FilterCmdArgs as CmdArgs;
 
-pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<()> {
     let mut rules: Vec<String> = Vec::new();
     for filename in args.rules {
         let ar = lmrs::load_rules(&filename)?;
@@ -19,7 +20,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
         Box::new(BufReader::new(std::io::stdin()))
     } else {
-        Box::new(BufReader::new(File::open(&args.input).unwrap()))
+        Box::new(BufReader::new(File::open(&args.input)?))
     };
     for line in reader.lines() {
         let line = line?;

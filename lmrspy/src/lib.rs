@@ -31,7 +31,7 @@ impl Validator {
                 flags,
                 ignores,
             }),
-            Err(err) => Err(pyo3::exceptions::PyValueError::new_err(err)),
+            Err(err) => Err(pyo3::exceptions::PyValueError::new_err(format!("{}", err))),
         }
     }
     fn __repr__(&self) -> PyResult<String> {

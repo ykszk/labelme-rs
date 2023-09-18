@@ -1,10 +1,11 @@
+use anyhow::{Context, Result};
 use labelme_rs::image::GenericImageView;
 use std::{io::Read, path::PathBuf};
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
 use lmrs::cli::SvgCmdArgs as CmdArgs;
 
-pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let mut json_data = labelme_rs::LabelMeData::try_from(if args.input.as_os_str() == "-" {
         let mut buf = String::new();
@@ -24,7 +25,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     } else if args.input.as_os_str() == "-" {
         PathBuf::from(".")
     } else {
-        args.input.parent().unwrap().into()
+        args.input.parent().context("Failed to get parent")?.into()
     };
     std::env::set_current_dir(&json_dir)?;
 
@@ -41,7 +42,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             json_data.scale(scale);
         }
     }
-    let document = json_data.to_svg(&label_colors, args.radius, args.line_width, &img)?;
+    let document = json_data.to_svg(&label_colors, args.radius, args.line_width, &img);
     labelme_rs::svg::save(args.output, &document)?;
     Ok(())
 }

@@ -107,11 +107,15 @@ lmrs join left.ndjson right.ndjson
 ```
 
 # Python binding
+Install:
 
 ```console
 cd lmrspy
 maturin develop --release
+python -m unittest discover -v tests/
 ```
+
+Example:
 
 ```python
 import lmrspy

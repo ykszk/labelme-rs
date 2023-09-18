@@ -1,5 +1,5 @@
+use anyhow::{bail, Result};
 use labelme_rs::indexmap::{IndexMap, IndexSet};
-use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -8,61 +8,33 @@ type JzonObject = jzon::JsonValue;
 use lmrs::cli::JoinCmdArgs as CmdArgs;
 use lmrs::cli::JoinMode;
 
-trait ParseStr: Sized {
-    fn parse_str(s: &str) -> Result<Self, Box<dyn std::error::Error>>;
-    fn to_line(self) -> Result<String, Box<dyn std::error::Error>>;
-}
-
-type SerdeJzonObject = serde_json::Map<String, serde_json::Value>;
-impl ParseStr for SerdeJzonObject {
-    fn parse_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let o = serde_json::from_str(s);
-        o.map_err(|e| e.into())
-    }
-    fn to_line(self) -> Result<String, Box<dyn std::error::Error>> {
-        serde_json::to_string(&self).map_err(|e| e.into())
-    }
-}
-
-impl ParseStr for JzonObject {
-    fn parse_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        jzon::parse(s).map_err(|e| e.into())
-    }
-    fn to_line(self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(self.to_string())
-    }
-}
-
-fn load_ndjson(
-    input: &Path,
-    key: &str,
-) -> Result<IndexMap<String, JzonObject>, Box<dyn std::error::Error>> {
+fn load_ndjson(input: &Path, key: &str) -> Result<IndexMap<String, JzonObject>> {
     let reader: Box<dyn BufRead> = if input.as_os_str() == "-" {
         Box::new(BufReader::new(std::io::stdin()))
     } else {
-        Box::new(BufReader::new(File::open(input).unwrap()))
+        Box::new(BufReader::new(File::open(input)?))
     };
-    let ndjson: Result<IndexMap<String, JzonObject>, Box<dyn std::error::Error>> = reader
+    let ndjson: Result<IndexMap<String, JzonObject>> = reader
         .lines()
         .map(|line| {
-            line.map_err(|e| e.into())
-                .and_then(|l| JzonObject::parse_str(&l))
-                .and_then(|obj| match obj.get(key) {
-                    Some(value) => {
-                        if let Some(s) = value.as_str() {
-                            Ok((s.to_string(), obj))
-                        } else {
-                            panic!("Value for the key is not a string");
-                        }
+            let line = line?;
+            let obj = jzon::parse(&line)?;
+            match obj.get(key) {
+                Some(value) => {
+                    if let Some(s) = value.as_str() {
+                        Ok((s.to_string(), obj))
+                    } else {
+                        bail!("Value for the key {} is not a string", key);
                     }
-                    None => {
-                        panic!("Key {} not found", key)
-                    }
-                })
-                .map(|(s, mut obj)| {
-                    obj.remove(key);
-                    (s, obj)
-                })
+                }
+                None => {
+                    bail!("Key {} not found", key)
+                }
+            }
+            .map(|(s, mut obj)| {
+                obj.remove(key);
+                (s, obj)
+            })
         })
         .collect();
     ndjson
@@ -115,14 +87,12 @@ fn join_outer(
     left
 }
 
-pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
         .init();
     let input_set: IndexSet<PathBuf> = IndexSet::from_iter(args.input.into_iter());
-    if input_set.len() <= 1 {
-        return Err("Need more than one input".into());
-    }
+    anyhow::ensure!(input_set.len() <= 1, "Need more than one input");
     debug!("Read and join ndjsons");
     let joined: Result<IndexMap<String, JzonObject>, _> = input_set
         .iter()
@@ -139,7 +109,7 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
     debug!("Print result");
     for (key, mut obj) in joined? {
-        obj.insert(&args.key, key).unwrap();
+        obj.insert(&args.key, key)?;
         let line = obj.to_string();
         println!("{}", line);
     }
@@ -148,11 +118,9 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_join() {
-    let l: IndexMap<String, JzonObject> =
-        IndexMap::from([("k1".into(), jzon::parse("{}").unwrap())]);
-    let r: IndexMap<String, JzonObject> =
-        IndexMap::from([("k2".into(), jzon::parse("{}").unwrap())]);
+fn test_join() -> anyhow::Result<()> {
+    let l: IndexMap<String, JzonObject> = IndexMap::from([("k1".into(), jzon::parse("{}")?)]);
+    let r: IndexMap<String, JzonObject> = IndexMap::from([("k2".into(), jzon::parse("{}")?)]);
 
     let joined = join_inner(l.clone(), r.clone());
     assert!(!joined.contains_key("k1"));
@@ -165,4 +133,5 @@ fn test_join() {
     let joined = join_outer(l, r);
     assert!(joined.contains_key("k1"));
     assert!(joined.contains_key("k2"));
+    Ok(())
 }

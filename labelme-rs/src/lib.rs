@@ -9,7 +9,6 @@ pub use serde_json;
 use std::error::Error;
 use std::io::Cursor;
 use std::path::Path;
-use std::{fs::File, io::BufReader};
 pub use svg;
 use svg::node::element;
 use zune_jpeg::zune_core::colorspace::ColorSpace;
@@ -104,18 +103,6 @@ impl LabelMeData {
         self.imageHeight = (self.imageHeight as f64 * scale) as _;
     }
 
-    #[deprecated(since = "0.5.0", note = "Use from(path: &Path)")]
-    pub fn load(filename: &Path) -> Result<Self, Box<dyn Error>> {
-        Ok(serde_json::from_reader(BufReader::new(File::open(
-            filename,
-        )?))?)
-    }
-
-    pub fn save(&self, filename: &Path) -> Result<(), Box<dyn Error>> {
-        let writer = std::io::BufWriter::new(std::fs::File::create(filename)?);
-        serde_json::to_writer_pretty(writer, self).map_err(|err| Box::new(err) as Box<dyn Error>)
-    }
-
     /// Count the number of labels
     ///
     /// ```
@@ -145,7 +132,7 @@ impl LabelMeData {
         point_radius: usize,
         line_width: usize,
         img: &image::DynamicImage,
-    ) -> Result<svg::Document, Box<dyn Error>> {
+    ) -> svg::Document {
         let (image_width, image_height) = img.dimensions();
         let mut document = svg::Document::new()
             .set("width", image_width)
@@ -246,7 +233,7 @@ impl LabelMeData {
                 document = document.add(group);
             }
         }
-        Ok(document)
+        document
     }
 }
 
@@ -324,12 +311,26 @@ pub struct ColorCycler {
     i: usize,
 }
 
-pub fn load_label_colors(filename: &Path) -> Result<LabelColorsHex, Box<dyn std::error::Error>> {
-    let config: serde_yaml::Value =
-        serde_yaml::from_reader(std::io::BufReader::new(std::fs::File::open(filename)?))?;
+#[derive(thiserror::Error, Debug)]
+pub enum LabelColorError {
+    #[error("IO error: {0}")]
+    IoError(std::io::Error),
+    #[error("Invalid yaml: {0}")]
+    YamlError(serde_yaml::Error),
+    #[error("Invalid value: {0}")]
+    ValueError(serde_yaml::Error),
+}
+
+pub fn load_label_colors(filename: &Path) -> Result<LabelColorsHex, LabelColorError> {
+    let config: serde_yaml::Value = serde_yaml::from_reader(std::io::BufReader::new(
+        std::fs::File::open(filename).map_err(LabelColorError::IoError)?,
+    ))
+    .map_err(LabelColorError::ValueError)?;
     let colors = config.get("label_colors");
     let label_colors: LabelColors = match colors {
-        Some(colors) => serde_yaml::from_value(colors.to_owned())?,
+        Some(colors) => {
+            serde_yaml::from_value(colors.to_owned()).map_err(LabelColorError::ValueError)?
+        }
         None => LabelColors::new(),
     };
     let hex = label_colors

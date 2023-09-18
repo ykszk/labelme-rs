@@ -1,3 +1,4 @@
+use anyhow::{anyhow, ensure, Context, Result};
 use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -16,32 +17,39 @@ impl ImagePath for labelme_rs::LabelMeData {
 }
 
 type JsonMap = serde_json::Map<String, serde_json::Value>;
-fn swap_prefix(
-    key: &str,
-    prefix: &str,
-    mut json_data: JsonMap,
-) -> Result<JsonMap, Box<dyn std::error::Error>> {
-    let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
-    let entry = json_data.entry(key).and_modify(|value| {
-        *value = format!(
-            "{}{}{}",
-            prefix,
-            if prefix.ends_with('/') || prefix.is_empty() {
-                ""
-            } else {
-                "/"
-            },
-            Path::new(&value.as_str().unwrap().replace('\\', "/"))
+fn swap_prefix(key: &str, prefix: &str, mut json_data: JsonMap) -> Result<JsonMap> {
+    let entry = json_data.entry(key);
+    match entry {
+        serde_json::map::Entry::Vacant(_) => Err(anyhow!("{} not found", key)),
+        serde_json::map::Entry::Occupied(mut value) => {
+            let value = value.get_mut();
+            let path = value
+                .as_str()
+                .with_context(|| format!("Value {} is not a string", &value))?
+                .replace('\\', "/");
+            let file_name = Path::new(&path)
                 .file_name()
-                .unwrap()
+                .with_context(|| format!("Failed to do file_name: {}", path))?
                 .to_str()
-                .unwrap()
-        )
-        .into();
-    });
-    if let serde_json::map::Entry::Vacant(_) = entry {
-        panic!("`{}` key not found.", key);
-    }
+                .with_context(|| format!("Failed to convert osstr to str: {}", path))?;
+            if prefix.is_empty() {
+                *value = file_name.into();
+            } else {
+                *value = format!(
+                    "{}{}{}",
+                    prefix,
+                    if prefix.ends_with('/') { "" } else { "/" },
+                    Path::new(&value.as_str().unwrap().replace('\\', "/"))
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                )
+                .into();
+            }
+            Ok(())
+        }
+    }?;
     Ok(json_data)
 }
 
@@ -51,9 +59,9 @@ fn swap_prefix_file(
     prefix: &str,
     output: &Path,
     pretty: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let json_str = std::fs::read_to_string(input)?;
-    let json_data: JsonMap = serde_json::from_str(&json_str).unwrap();
+    let json_data: JsonMap = serde_json::from_str(&json_str)?;
     let line = if pretty {
         serde_json::to_string_pretty(&swap_prefix(key, prefix, json_data)?)?
     } else {
@@ -65,7 +73,7 @@ fn swap_prefix_file(
 }
 
 #[test]
-fn test_swap_prefix() {
+fn test_swap_prefix() -> Result<()> {
     use std::path::PathBuf;
 
     let key = "imagePath";
@@ -98,30 +106,32 @@ fn test_swap_prefix() {
     assert!(swap_prefix_file(&filename, key, "", &output_filename, pretty).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!("stem.jpg", swapped_data.imagePath);
+    Ok(())
 }
 
-pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     if args.input.is_dir() {
         let output = args.output.unwrap_or_else(|| args.input.clone());
         debug!("Directory input");
-        if !output.exists() {
-            return Err(format!(
-                "Output directory \"{}\" does not exist.",
-                output.to_string_lossy()
-            )
-            .into());
-        };
-        if !output.is_dir() {
-            return Err(format!(
-                "Existing file \"{}\" found: directory output is required for directory input.",
-                output.to_string_lossy()
-            )
-            .into());
-        }
-        let entries: Vec<_> = glob::glob(args.input.join("*.json").to_str().unwrap())
-            .expect("Failed to read glob pattern")
-            .collect();
+        ensure!(
+            output.exists(),
+            "Output directory \"{}\" does not exist.",
+            output.to_string_lossy()
+        );
+        ensure!(
+            output.is_dir(),
+            "Existing file \"{}\" found: directory output is required for directory input.",
+            output.to_string_lossy()
+        );
+        let entries: Vec<_> = glob::glob(
+            args.input
+                .join("*.json")
+                .to_str()
+                .context("Failed to get glob")?,
+        )
+        .expect("Failed to read glob pattern")
+        .collect();
         let bar = indicatif::ProgressBar::new(entries.len() as _);
         bar.set_style(
             indicatif::ProgressStyle::default_bar()
@@ -129,7 +139,9 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         );
         for entry in entries {
             let input = entry?;
-            let output = output.clone().join(input.file_name().unwrap());
+            let output = output
+                .clone()
+                .join(input.file_name().context("Failed to obtain filename")?);
             swap_prefix_file(&input, &args.key, &args.prefix, &output, true)?;
             bar.inc(1);
         }
@@ -156,21 +168,21 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
                 Box::new(BufReader::new(std::io::stdin()))
             } else {
-                Box::new(BufReader::new(File::open(&args.input).unwrap()))
+                Box::new(BufReader::new(File::open(&args.input)?))
             };
             let mut writer: Box<dyn Write> = match args.output {
                 Some(x) => {
                     if x.as_os_str() == "-" {
                         Box::new(BufWriter::new(std::io::stdout()))
                     } else {
-                        Box::new(BufWriter::new(File::create(&x).unwrap()))
+                        Box::new(BufWriter::new(File::create(&x)?))
                     }
                 }
                 None => Box::new(BufWriter::new(std::io::stdout())),
             };
             for line in reader.lines() {
                 let line = line?;
-                let json_data: JsonMap = serde_json::from_str(&line).unwrap();
+                let json_data: JsonMap = serde_json::from_str(&line)?;
                 let json_data = swap_prefix(&args.key, &args.prefix, json_data)?;
                 writeln!(writer, "{}", serde_json::to_string(&json_data)?)?;
             }

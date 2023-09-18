@@ -1,3 +1,4 @@
+use anyhow::{bail, ensure, Context, Result};
 use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::IndexMap;
 use labelme_rs::serde_json;
@@ -9,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use labelme_rs::{load_label_colors, LabelColorsHex};
 use lmrs::cli::HtmlCmdArgs as CmdArgs;
 
-pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
 
     let mut templates = tera::Tera::default();
@@ -31,45 +32,50 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     info!("Use {n_jobs} cores");
     info!("Load jsons");
     let mut entries: Vec<(PathBuf, Box<labelme_rs::LabelMeData>)> = if args.input.is_dir() {
-        let entries: Result<Vec<_>, Box<dyn std::error::Error>> =
-            glob::glob(args.input.join("*.json").to_str().unwrap())
-                .expect("Failed to read glob pattern")
-                .map(|entry| {
-                    let entry = entry?;
-                    let json_data = labelme_rs::LabelMeData::try_from(entry.as_path())?;
-                    Ok((entry, Box::new(json_data)))
-                })
-                .collect();
+        let entries: Result<Vec<_>> = glob::glob(
+            args.input
+                .join("*.json")
+                .to_str()
+                .context("Failed to obtain glob string")?,
+        )
+        .expect("Failed to read glob pattern")
+        .map(|entry| {
+            let entry = entry?;
+            let s = std::fs::read_to_string(&entry)?;
+            let obj = labelme_rs::LabelMeData::try_from(s.as_str());
+            Ok((entry, obj?.into()))
+        })
+        .collect();
         entries?
     } else {
         let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
             Box::new(BufReader::new(std::io::stdin()))
         } else {
-            Box::new(BufReader::new(File::open(&args.input).unwrap()))
+            Box::new(BufReader::new(File::open(&args.input)?))
         };
         let mut entries: Vec<_> = Vec::new();
         for line in reader.lines() {
             let line = line?;
             let mut json_data: serde_json::Map<String, serde_json::Value> =
-                serde_json::from_str(&line).unwrap();
-            let v_filename = json_data
-                .remove("filename")
-                .ok_or_else(|| format!("Key '{}' not found", "filename"))?;
+                serde_json::from_str(&line)?;
+            let v_filename = json_data.remove("filename").context("filename not found")?;
             let serde_json::Value::String(filename) = v_filename else {panic!("expected String")};
             let json_data = labelme_rs::LabelMeData::try_from(line.as_str())?;
             entries.push((filename.into(), Box::new(json_data)));
         }
         entries
     };
-    if entries.is_empty() {
-        return Err("No json file found.".into());
-    }
+
+    ensure!(!entries.is_empty(), "No json file found.");
     let json_dir: PathBuf = if args.input.is_dir() {
         args.input.clone()
     } else if args.input.as_os_str() == "-" {
         PathBuf::from(".")
     } else {
-        args.input.parent().unwrap().into()
+        args.input
+            .parent()
+            .context("Input has no parent directory")?
+            .into()
     };
     let bar = indicatif::ProgressBar::new(entries.len() as _);
     bar.set_style(
@@ -108,83 +114,92 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
         for chunk in entries.chunks_mut(chunk_size) {
             handles.push(scope.spawn(|| {
-                let mut svgs: Vec<String> = Vec::with_capacity(chunk.len());
                 let mut all_tags: IndexMap<String, bool> = IndexMap::new();
-                for entry in chunk.iter_mut() {
-                    let input = &mut entry.0;
-                    let json_data = &mut entry.1;
+                let svgs: Result<Vec<String>> = chunk
+                    .iter_mut()
+                    .map(|entry| {
+                        let input = &mut entry.0;
+                        let json_data = &mut entry.1;
 
-                    let image_path = json_data.imagePath.replace('\\', "/");
-                    let img_filename = if let Some(image_dir) = &args.image_dir {
-                        let filename = Path::new(&image_path).file_name().unwrap();
-                        image_dir.join(filename)
-                    } else {
-                        let p = PathBuf::from(&image_path);
-                        p.canonicalize().unwrap_or_else(|_| {
-                            panic!("Failed to canonicalize {}", json_data.imagePath)
-                        })
-                    };
-                    let mut img = labelme_rs::load_image(&img_filename).unwrap_or_else(|e| {
-                        panic!("Failed to load image {:?}: {:?}", img_filename, e)
-                    });
-                    match &resize_param {
-                        Some(param) => {
-                            let orig_size = img.dimensions();
-                            img = param.resize(&img);
-                            debug!(
-                                "Image is resized to {} x {}",
-                                img.dimensions().0,
-                                img.dimensions().1
-                            );
-                            let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
-                            if (scale - 1.0).abs() > f64::EPSILON {
-                                debug!("Points are scaled by {}", scale);
-                                json_data.scale(scale);
+                        let image_path = json_data.imagePath.replace('\\', "/");
+                        let img_filename = if let Some(image_dir) = &args.image_dir {
+                            let filename = Path::new(&image_path).file_name().context("")?;
+                            image_dir.join(filename)
+                        } else {
+                            let p = PathBuf::from(&image_path);
+                            p.canonicalize().unwrap_or_else(|_| {
+                                panic!("Failed to canonicalize {}", json_data.imagePath)
+                            })
+                        };
+                        let mut img = labelme_rs::load_image(&img_filename).unwrap_or_else(|e| {
+                            panic!("Failed to load image {:?}: {:?}", img_filename, e)
+                        });
+                        match &resize_param {
+                            Some(param) => {
+                                let orig_size = img.dimensions();
+                                img = param.resize(&img);
+                                debug!(
+                                    "Image is resized to {} x {}",
+                                    img.dimensions().0,
+                                    img.dimensions().1
+                                );
+                                let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
+                                if (scale - 1.0).abs() > f64::EPSILON {
+                                    debug!("Points are scaled by {}", scale);
+                                    json_data.scale(scale);
+                                }
+                            }
+                            None => {}
+                        };
+
+                        for (flag, checked) in json_data.flags.iter() {
+                            if *checked {
+                                *all_tags.entry(flag.into()).or_insert(true) = true;
                             }
                         }
-                        None => {}
-                    };
-
-                    for (flag, checked) in json_data.flags.iter() {
-                        if *checked {
-                            *all_tags.entry(flag.into()).or_insert(true) = true;
-                        }
-                    }
-                    let flags: Vec<_> = json_data
-                        .flags
-                        .iter()
-                        .filter(|(_k, v)| **v)
-                        .map(|(k, _v)| k.clone())
-                        .collect();
-                    let flags = flags.join(" ");
-                    let label_counts = json_data.clone().count_labels();
-                    let title = label_counts
-                        .iter()
-                        .map(|(k, v)| format!("{k}:{v}"))
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    let document = json_data
-                        .to_svg(&label_colors, args.radius, args.line_width, &img)
-                        .expect("SVG conversion failed");
-                    let mut context = tera::Context::new();
-                    context.insert("tags", &flags);
-                    context.insert("flags", &flags);
-                    context.insert("title", &title);
-                    context.insert("name", input.file_name().unwrap().to_str().unwrap());
-                    context.insert("svg", &document.to_string());
-                    let fig = templates
-                        .render("img.html", &context)
-                        .expect("Failed to render img.html");
-                    svgs.push(fig);
-                    let bar = shared_bar.lock().unwrap();
-                    bar.inc(1);
-                }
-                Ok((svgs, all_tags))
+                        let flags: Vec<_> = json_data
+                            .flags
+                            .iter()
+                            .filter(|(_k, v)| **v)
+                            .map(|(k, _v)| k.clone())
+                            .collect();
+                        let flags = flags.join(" ");
+                        let label_counts = json_data.clone().count_labels();
+                        let title = label_counts
+                            .iter()
+                            .map(|(k, v)| format!("{k}:{v}"))
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        let document =
+                            json_data.to_svg(&label_colors, args.radius, args.line_width, &img);
+                        let mut context = tera::Context::new();
+                        context.insert("tags", &flags);
+                        context.insert("flags", &flags);
+                        context.insert("title", &title);
+                        context.insert(
+                            "name",
+                            &input
+                                .file_name()
+                                .context("Failed to get file_name")?
+                                .to_string_lossy(),
+                        );
+                        context.insert("svg", &document.to_string());
+                        let fig = templates
+                            .render("img.html", &context)
+                            .expect("Failed to render img.html");
+                        let bar = shared_bar.lock().unwrap();
+                        bar.inc(1);
+                        Ok(fig)
+                    })
+                    .collect();
+                Ok((svgs?, all_tags))
             }));
         }
         for handle in handles {
-            let svgs_all_tags: Result<_, String> = handle.join().unwrap();
-            let mut svgs_all_tags = svgs_all_tags.unwrap();
+            let svgs_all_tags: Result<_> = handle.join().unwrap();
+            let mut svgs_all_tags = svgs_all_tags
+                .or_else(|e| bail!("Failed to generate html: {}", e))
+                .unwrap();
             svgs.append(&mut svgs_all_tags.0);
             for (flag, checked) in svgs_all_tags.1.iter() {
                 if *checked {
@@ -201,29 +216,28 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         std::env::set_current_dir(original_dir)
             .unwrap_or_else(|_| panic!("Failed to change directory back to {:?}", json_dir));
     }
-    let tag_cbs = all_tags
+    let tag_cbs: std::result::Result<Vec<_>, _> = all_tags
         .iter()
         .filter_map(|(tag, checked)| {
             if *checked {
                 let mut context = tera::Context::new();
                 context.insert("tag", &tag);
-                Some(templates.render("tag_checkbox.html", &context).unwrap())
+                Some(context)
             } else {
                 None
             }
         })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let legend = label_colors
+        .map(|context| templates.render("tag_checkbox.html", &context))
+        .collect();
+    let legends: std::result::Result<Vec<_>, _> = label_colors
         .iter()
         .map(|(k, v)| {
             let mut context = tera::Context::new();
             context.insert("label", &k);
             context.insert("color", &v);
-            templates.render("legend.html", &context).unwrap()
+            templates.render("legend.html", &context)
         })
-        .collect::<Vec<_>>()
-        .join("\n");
+        .collect();
     let mut context = tera::Context::new();
     let style = if let Some(css) = args.css {
         std::fs::read_to_string(css)?
@@ -231,14 +245,14 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
         include_str!("templates/default.css").into()
     };
     context.insert("title", &args.title);
-    context.insert("legend", &legend);
-    context.insert("tag_checkboxes", &tag_cbs);
+    context.insert("legend", &legends?.join("\n"));
+    context.insert("tag_checkboxes", &tag_cbs?.join("\n"));
     context.insert("main", &svgs.join("\n"));
     context.insert("style", &style);
     let html = templates.render("catalog.html", &context)?;
     info!("Write html");
     let mut writer = std::io::BufWriter::new(std::fs::File::create(args.output)?);
-    writer.write_all(html.as_bytes()).unwrap();
+    writer.write_all(html.as_bytes())?;
     info!("Done");
     Ok(())
 }

@@ -5,6 +5,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 use clap::Parser;
 #[macro_use]
 extern crate log;
+use anyhow::Result;
 
 mod drop_dups;
 mod filter;
@@ -19,7 +20,7 @@ mod validate;
 use lmrs::cli::Cli;
 use lmrs::cli::Command;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Html(args) => lms2html::cmd(args),

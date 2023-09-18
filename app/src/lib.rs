@@ -11,6 +11,7 @@ use std::{
     io::{BufRead, BufReader},
     path::Path,
 };
+use thiserror::Error;
 #[macro_use]
 extern crate lazy_static;
 
@@ -128,12 +129,18 @@ pub fn eval<'a>(expr: &'a Expr, vars: &Vec<(&'a String, isize)>) -> Result<isize
     }
 }
 
-pub fn load_rules(filename: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub fn load_rules(filename: &Path) -> std::io::Result<Vec<String>> {
     let rules: Vec<String> = BufReader::new(File::open(filename)?)
         .lines()
         .map_while(Result::ok)
         .collect();
     Ok(rules)
+}
+
+#[derive(Error, Debug)]
+pub enum ParseError {
+    #[error("parse error: {0}")]
+    Error(String),
 }
 
 /// Parse rules
@@ -143,14 +150,14 @@ pub fn load_rules(filename: &Path) -> Result<Vec<String>, Box<dyn std::error::Er
 /// let ast = lmrs::parse_rules(&vec!["a = b".into()]);
 /// assert!(ast.is_err());
 /// ```
-pub fn parse_rules(rules: &[String]) -> Result<Vec<Expr>, String> {
+pub fn parse_rules(rules: &[String]) -> Result<Vec<Expr>, ParseError> {
     let asts: Result<Vec<_>, _> = rules.iter().map(|r| parser().parse(r.clone())).collect();
     asts.map_err(|parse_errs| {
         let errs: Vec<_> = parse_errs
             .into_iter()
             .map(|e| format!("Parse error: {e}"))
             .collect();
-        errs.join("\n")
+        ParseError::Error(errs.join("\n"))
     })
 }
 
@@ -275,8 +282,21 @@ lazy_static! {
     static ref RE_SIZE: Regex = Regex::new(r"^(\d+)x(\d+)$").unwrap();
 }
 
+// pub enum ParseError {
+//     #[error("parse error: {0}")]
+//     Error(String),
+// }
+
+#[derive(Error, Debug)]
+pub enum ResizeParamError {
+    #[error("int parse error: {0}")]
+    ParseIntError(std::num::ParseIntError),
+    #[error("Invalid format: {0}")]
+    FormatError(String),
+}
+
 impl TryFrom<&str> for ResizeParam {
-    type Error = Box<dyn std::error::Error>;
+    type Error = ResizeParamError;
 
     /// Parse resize parameter
     /// ```
@@ -286,14 +306,30 @@ impl TryFrom<&str> for ResizeParam {
     /// ```
     fn try_from(param: &str) -> Result<Self, Self::Error> {
         if let Some(cap) = RE_PERCENT.captures(param) {
-            let p: f64 = cap.get(1).unwrap().as_str().parse::<u8>()? as f64 / 100.0;
+            let p: f64 = cap
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse::<u32>()
+                .map_err(ResizeParamError::ParseIntError)? as f64
+                / 100.0;
             Ok(ResizeParam::Percentage(p))
         } else if let Some(cap) = RE_SIZE.captures(param) {
-            let w: u32 = cap.get(1).unwrap().as_str().parse()?;
-            let h: u32 = cap.get(2).unwrap().as_str().parse()?;
+            let w: u32 = cap
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse()
+                .map_err(ResizeParamError::ParseIntError)?;
+            let h: u32 = cap
+                .get(2)
+                .unwrap()
+                .as_str()
+                .parse()
+                .map_err(ResizeParamError::ParseIntError)?;
             Ok(ResizeParam::Size(w, h))
         } else {
-            Err(format!("{param} is invalid resize argument").into())
+            Err(ResizeParamError::FormatError(param.into()))
         }
     }
 }

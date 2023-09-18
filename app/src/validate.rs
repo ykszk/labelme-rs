@@ -1,3 +1,4 @@
+use anyhow::{bail, Context, Result};
 use glob::glob;
 use labelme_rs::indexmap::IndexSet;
 use std::sync::{
@@ -7,7 +8,7 @@ use std::sync::{
 
 use lmrs::cli::ValidateCmdArgs as CmdArgs;
 
-pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cmd(args: CmdArgs) -> Result<()> {
     let verbosity = args.verbose;
     let mut rules = lmrs::load_rules(&args.rules)?;
     for filename in args.additional {
@@ -25,9 +26,14 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
     let checked_count = Arc::new(AtomicUsize::new(0));
     let valid_count = Arc::new(AtomicUsize::new(0));
-    let file_list: Vec<_> = glob(indir.join("**/*.json").to_str().unwrap())
-        .expect("Failed to read glob pattern")
-        .collect();
+    let file_list: Vec<_> = glob(
+        indir
+            .join("**/*.json")
+            .to_str()
+            .context("Failed to get glob string")?,
+    )
+    .expect("Failed to read glob pattern")
+    .collect();
     let file_list = Arc::new(file_list);
     let flag_set: IndexSet<String> = args.flag.into_iter().collect();
     let ignore_set: IndexSet<String> = args.ignore.into_iter().collect();
@@ -57,12 +63,12 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
                                         valid_count.fetch_add(1, Ordering::SeqCst);
                                     }
                                     if verbosity > 0 && ret != lmrs::CheckResult::Skipped {
-                                        println!("{},", disp_path.to_str().unwrap());
+                                        println!("{:?},", disp_path);
                                     }
                                 }
                                 Err(err) => {
                                     checked_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                                    println!("{},{}", disp_path.to_str().unwrap(), err);
+                                    println!("{:?},{}", disp_path, err);
                                 }
                             };
                         }
@@ -73,7 +79,10 @@ pub fn cmd(args: CmdArgs) -> Result<(), Box<dyn std::error::Error>> {
             handles.push(handle);
         }
         for handle in handles {
-            handle.join().unwrap();
+            handle
+                .join()
+                .or_else(|e| bail!("Failed to execute validation: {:?}", e))
+                .unwrap();
         }
     });
     if args.stats {

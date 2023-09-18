@@ -31,7 +31,12 @@ fn test_jsonl_split() {
 
     let output = proc_filter.wait_with_output().unwrap();
     assert_eq!(output.stdout.len(), 0, "Non-empty stdout");
-    assert_eq!(output.stderr.len(), 0, "Non-empty stderror");
+    assert_eq!(
+        output.stderr.len(),
+        0,
+        "Non-empty stderror: {}",
+        String::from_utf8_lossy(output.stderr.as_slice())
+    );
 
     for path in std::fs::read_dir(tmp_dir).unwrap() {
         println!("path:{path:?}");
