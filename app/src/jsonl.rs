@@ -14,12 +14,12 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     for input in args.input {
+        ensure!(input.exists(), "Input directory {:?} not found.", input);
         ensure!(
             input.is_dir(),
             "Input {:?} is a file not a directory.",
             input
         );
-        ensure!(input.exists(), "Input directory {:?} not found.", input);
         let entries: Vec<_> = glob::glob(
             input
                 .join("*.json")
@@ -28,7 +28,10 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         )
         .expect("Failed to read glob pattern")
         .collect();
-        ensure!(!entries.is_empty(), "No json file found.");
+        ensure!(
+            !entries.is_empty(),
+            "No json file found in the input directories."
+        );
         for entry in entries {
             let input = entry?;
             let json_str = std::fs::read_to_string(&input)?;

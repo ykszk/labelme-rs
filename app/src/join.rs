@@ -92,7 +92,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         .format_timestamp_millis()
         .init();
     let input_set: IndexSet<PathBuf> = IndexSet::from_iter(args.input.into_iter());
-    anyhow::ensure!(input_set.len() <= 1, "Need more than one input");
+    anyhow::ensure!(input_set.len() > 1, "Need more than one input");
     debug!("Read and join ndjsons");
     let joined: Result<IndexMap<String, JzonObject>, _> = input_set
         .iter()
