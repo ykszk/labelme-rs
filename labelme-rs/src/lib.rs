@@ -186,10 +186,10 @@ impl LabelMeData {
                         continue;
                     }
                     let rect = element::Rectangle::new()
-                        .set("x", rectangle[0].0)
-                        .set("y", rectangle[0].1)
-                        .set("width", rectangle[1].0 - rectangle[0].0)
-                        .set("height", rectangle[1].1 - rectangle[0].1);
+                        .set("x", rectangle[0].0.min(rectangle[1].0))
+                        .set("y", rectangle[0].1.min(rectangle[1].1))
+                        .set("width", (rectangle[1].0 - rectangle[0].0).abs())
+                        .set("height", (rectangle[1].1 - rectangle[0].1).abs());
                     group = group.add(rect);
                 }
                 document = document.add(group);
