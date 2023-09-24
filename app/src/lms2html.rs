@@ -1,6 +1,6 @@
 use anyhow::{bail, ensure, Context, Result};
 use labelme_rs::image::GenericImageView;
-use labelme_rs::indexmap::IndexMap;
+use labelme_rs::indexmap::{IndexMap, IndexSet};
 use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
@@ -22,6 +22,10 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         (
             "tag_checkbox.html",
             include_str!("templates/tag_checkbox.html"),
+        ),
+        (
+            "shape_toggle.html",
+            include_str!("templates/shape_toggle.html"),
         ),
     ])?;
     let n_jobs = if let Some(n) = args.jobs {
@@ -83,7 +87,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             .template("[{elapsed}<{eta}] | {wide_bar} | {pos}/{len}")?,
     );
     let shared_bar = Arc::new(Mutex::new(bar));
-    let label_colors = match args.config {
+    let mut label_colors = match args.config {
         Some(config) => load_label_colors(&config)?,
         None => LabelColorsHex::new(),
     };
@@ -98,6 +102,48 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         }
         None => IndexMap::new(),
     };
+    let mut all_shapes: IndexSet<String> = IndexSet::default();
+    info!("Collect tag and label info");
+    std::thread::scope(|scope| {
+        let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
+        let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
+        for chunk in entries.chunks_mut(chunk_size) {
+            handles.push(scope.spawn(|| {
+                let mut all_tags: IndexSet<&str> = IndexSet::default();
+                let mut all_labels: IndexSet<&str> = IndexSet::default();
+                let mut all_shapes: IndexSet<&str> = IndexSet::default();
+                for (_, json_data) in chunk {
+                    for (flag, checked) in json_data.flags.iter() {
+                        if *checked {
+                            all_tags.insert(flag);
+                        }
+                    }
+                    for shape in json_data.shapes.iter() {
+                        all_labels.insert(&shape.label);
+                        all_shapes.insert(&shape.shape_type);
+                    }
+                }
+                (all_tags, all_labels, all_shapes)
+            }))
+        }
+        let mut cycler = labelme_rs::ColorCycler::new();
+        for handle in handles {
+            let result = handle.join().unwrap();
+            for flag in result.0 {
+                all_tags
+                    .entry(flag.to_string())
+                    .and_modify(|v| *v = true)
+                    .or_insert(true);
+            }
+            for color in result.1 {
+                label_colors
+                    .entry(color.to_string())
+                    .or_insert_with(|| cycler.cycle().to_string());
+            }
+            all_shapes.extend(result.2.iter().map(|s| s.to_string()));
+        }
+    });
+
     let mut svgs: Vec<String> = Vec::with_capacity(entries.len());
     let resize_param = match args.resize {
         Some(s) => Some(lmrs::ResizeParam::try_from(s.as_str())?),
@@ -109,12 +155,12 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         std::env::set_current_dir(&json_dir)
             .unwrap_or_else(|_| panic!("Failed to change directory to {:?}", json_dir));
     }
+    info!("Generate svgs");
     std::thread::scope(|scope| {
         let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
         let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
         for chunk in entries.chunks_mut(chunk_size) {
             handles.push(scope.spawn(|| {
-                let mut all_tags: IndexMap<String, bool> = IndexMap::new();
                 let svgs: Result<Vec<String>> = chunk
                     .iter_mut()
                     .map(|entry| {
@@ -152,11 +198,6 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                             None => {}
                         };
 
-                        for (flag, checked) in json_data.flags.iter() {
-                            if *checked {
-                                *all_tags.entry(flag.into()).or_insert(true) = true;
-                            }
-                        }
                         let flags: Vec<_> = json_data
                             .flags
                             .iter()
@@ -192,20 +233,15 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                         Ok(fig)
                     })
                     .collect();
-                Ok((svgs?, all_tags))
+                svgs
             }));
         }
         for handle in handles {
-            let svgs_all_tags: Result<_> = handle.join().unwrap();
-            let mut svgs_all_tags = svgs_all_tags
+            let results: Result<_> = handle.join().unwrap();
+            let mut results = results
                 .or_else(|e| bail!("Failed to generate html: {}", e))
                 .unwrap();
-            svgs.append(&mut svgs_all_tags.0);
-            for (flag, checked) in svgs_all_tags.1.iter() {
-                if *checked {
-                    *all_tags.entry(flag.into()).or_insert(true) = true;
-                }
-            }
+            svgs.append(&mut results);
         }
     });
     {
@@ -216,6 +252,14 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         std::env::set_current_dir(original_dir)
             .unwrap_or_else(|_| panic!("Failed to change directory back to {:?}", json_dir));
     }
+    let shape_toggles: std::result::Result<Vec<_>, _> = all_shapes
+        .iter()
+        .map(|shape| {
+            let mut context = tera::Context::new();
+            context.insert("shape", &shape);
+            templates.render("shape_toggle.html", &context)
+        })
+        .collect();
     let tag_cbs: std::result::Result<Vec<_>, _> = all_tags
         .iter()
         .filter_map(|(tag, checked)| {
@@ -246,6 +290,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     };
     context.insert("title", &args.title);
     context.insert("legend", &legends?.join("\n"));
+    context.insert("shape_toggles", &shape_toggles?.join("\n"));
     context.insert("tag_checkboxes", &tag_cbs?.join("\n"));
     context.insert("main", &svgs.join("\n"));
     context.insert("style", &style);
