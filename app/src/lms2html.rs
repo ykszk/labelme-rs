@@ -164,7 +164,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                             .map(|(k, _v)| k.clone())
                             .collect();
                         let flags = flags.join(" ");
-                        let label_counts = json_data.clone().count_labels();
+                        let label_counts = json_data.count_labels();
                         let title = label_counts
                             .iter()
                             .map(|(k, v)| format!("{k}:{v}"))

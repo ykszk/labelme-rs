@@ -39,9 +39,6 @@ pub struct LabelMeData {
     pub imageWidth: usize,
 }
 
-#[deprecated(since = "0.0.0", note = "Use LabelMeData instead")]
-pub type PointData = LabelMeData;
-
 pub fn img2base64(img: &image::DynamicImage, format: image::ImageOutputFormat) -> String {
     let mut cursor = Cursor::new(Vec::new());
     img.write_to(&mut cursor, format).unwrap();
@@ -79,13 +76,13 @@ impl LabelMeData {
     }
 
     /// Convert to a shape_type-centered map with a structure map\[`shape_type`\]\[label\] -> points
-    pub fn to_shape_map(&self) -> IndexMap<String, IndexMap<String, Vec<&Vec<Point>>>> {
+    pub fn to_shape_map(&self) -> IndexMap<&str, IndexMap<&str, Vec<&Vec<Point>>>> {
         let mut map = IndexMap::new();
         for shape in &self.shapes {
             let m = map
-                .entry(shape.shape_type.clone()) // TODO: avoid cloning
+                .entry(shape.shape_type.as_str())
                 .or_insert_with(IndexMap::new);
-            let v = m.entry(shape.label.clone()).or_insert_with(Vec::new); // TODO: avoid cloning
+            let v = m.entry(shape.label.as_str()).or_insert_with(Vec::new);
             v.push(&shape.points);
         }
         map
@@ -112,8 +109,8 @@ impl LabelMeData {
     /// assert_eq!(*counts.get("L2").unwrap(), 2usize);
     /// assert_eq!(counts.get("L0").cloned().unwrap_or(0usize), 0usize);
     /// ```
-    pub fn count_labels(self) -> IndexMap<String, usize> {
-        let mut counts: IndexMap<String, usize> = IndexMap::new();
+    pub fn count_labels(&self) -> IndexMap<&str, usize> {
+        let mut counts: IndexMap<&str, usize> = IndexMap::new();
         let mut shape_map = self.to_shape_map();
         if let Some(point_data) = shape_map.remove("point") {
             for (label, points) in point_data {
@@ -155,12 +152,12 @@ impl LabelMeData {
         if let Some(point_data) = shape_map.get("point") {
             for (label, points) in point_data {
                 let color = label_colors
-                    .get(label)
+                    .get(*label)
                     .cloned()
                     .unwrap_or_else(|| color_cycler.cycle().into());
                 let mut group = element::Group::new()
                     .set("class", format!("point {}", label))
-                    .set("fill", color)
+                    .set("fill", color.as_str())
                     .set("stroke", "none");
                 for point in points {
                     let point_xy = point[0];
@@ -176,13 +173,13 @@ impl LabelMeData {
         if let Some(rectangle_data) = shape_map.get("rectangle") {
             for (label, rectangles) in rectangle_data {
                 let color = label_colors
-                    .get(label)
+                    .get(*label)
                     .cloned()
                     .unwrap_or_else(|| color_cycler.cycle().into());
                 let mut group = element::Group::new()
                     .set("class", format!("rectangle {}", label))
                     .set("fill", "none")
-                    .set("stroke", color)
+                    .set("stroke", color.as_str())
                     .set("stroke-width", line_width);
                 for rectangle in rectangles {
                     if rectangle.len() != 2 {
@@ -198,10 +195,41 @@ impl LabelMeData {
                 document = document.add(group);
             }
         }
+        if let Some(polygon_data) = shape_map.get("polygon") {
+            for (label, polygons) in polygon_data {
+                let color = label_colors
+                    .get(*label)
+                    .cloned()
+                    .unwrap_or_else(|| color_cycler.cycle().into());
+                let mut group = element::Group::new()
+                    .set("class", format!("polygon {}", label))
+                    .set("fill", "none")
+                    .set("stroke", color.as_str())
+                    .set("stroke-width", line_width);
+                for polygon in polygons {
+                    let value: String = polygon
+                        .iter()
+                        .map(|(a, b)| format!("{} {}", a, b))
+                        .collect::<Vec<String>>()
+                        .join(" ");
+                    let poly = element::Polygon::new().set("points", value);
+                    group = group.add(poly);
+
+                    for p in polygon.iter() {
+                        let circle = element::Circle::new()
+                            .set("cx", p.0)
+                            .set("cy", p.1)
+                            .set("r", point_radius);
+                        group = group.add(circle);
+                    }
+                }
+                document = document.add(group);
+            }
+        }
         if let Some(circle_data) = shape_map.get("circle") {
             for (label, circles) in circle_data {
                 let color = label_colors
-                    .get(label)
+                    .get(*label)
                     .cloned()
                     .unwrap_or_else(|| color_cycler.cycle().into());
                 let mut group = element::Group::new()
@@ -215,7 +243,7 @@ impl LabelMeData {
                         .set("cx", circle[0].0)
                         .set("cy", circle[0].1)
                         .set("r", point_radius)
-                        .set("fill", color.clone())
+                        .set("fill", color.as_str())
                         .set("stroke", "none");
                     group = group.add(center);
                     if circle.len() > 1 {
@@ -226,7 +254,7 @@ impl LabelMeData {
                             .set("cy", circle[0].1)
                             .set("r", radius)
                             .set("fill", "none")
-                            .set("stroke", color.clone());
+                            .set("stroke", color.as_str());
                         group = group.add(c);
                     }
                 }
@@ -279,14 +307,16 @@ pub fn load_image(path: &Path) -> Result<image::DynamicImage, Box<dyn Error>> {
                 )
                 .map(image::DynamicImage::ImageLuma8)
                 .unwrap(),
-                ColorSpace::RGB => image::ImageBuffer::from_raw(
-                    image_info.width as u32,
-                    image_info.height as u32,
-                    pixels,
-                )
-                .map(image::DynamicImage::ImageRgba8)
-                .unwrap(),
-                _ => panic!("Unsupported jpeg color space"),
+                ColorSpace::RGB | ColorSpace::RGBA | ColorSpace::YCbCr => {
+                    image::ImageBuffer::from_raw(
+                        image_info.width as u32,
+                        image_info.height as u32,
+                        pixels,
+                    )
+                    .map(image::DynamicImage::ImageRgb8)
+                    .unwrap()
+                }
+                _ => panic!("Unsupported jpeg color space: {:?}", color_space),
             }
         }
         _ => image::open(path)?,
@@ -300,6 +330,12 @@ pub struct Color(u8, u8, u8);
 impl Color {
     pub fn to_hex(&self) -> String {
         format!("#{:02X}{:02X}{:02X}", self.0, self.1, self.2)
+    }
+}
+
+impl From<Color> for String {
+    fn from(val: Color) -> Self {
+        val.to_hex()
     }
 }
 
@@ -331,11 +367,11 @@ pub fn load_label_colors(filename: &Path) -> Result<LabelColorsHex, LabelColorEr
         Some(colors) => {
             serde_yaml::from_value(colors.to_owned()).map_err(LabelColorError::ValueError)?
         }
-        None => LabelColors::new(),
+        None => LabelColors::default(),
     };
     let hex = label_colors
         .into_iter()
-        .map(|(k, v)| (k, v.to_hex()))
+        .map(|(k, v)| (k, v.into()))
         .collect();
     Ok(hex)
 }
