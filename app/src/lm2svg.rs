@@ -25,7 +25,11 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     } else if args.input.as_os_str() == "-" {
         PathBuf::from(".")
     } else {
-        args.input.parent().context("Failed to get parent")?.into()
+        args.input
+            .canonicalize()?
+            .parent()
+            .context("Failed to get parent")?
+            .into()
     };
     std::env::set_current_dir(&json_dir)?;
 

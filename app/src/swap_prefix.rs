@@ -156,7 +156,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         {
             // single json
             let output = args.output.unwrap_or_else(|| args.input.clone());
-            swap_prefix_file(&args.input, &args.key, &args.prefix, &output, false)?;
+            swap_prefix_file(&args.input, &args.key, &args.prefix, &output, true)?;
         } else if args.input.as_os_str() == "-"
             || args
                 .input
