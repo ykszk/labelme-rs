@@ -153,11 +153,10 @@ impl LabelMeData {
             for (label, points) in point_data {
                 let color = label_colors
                     .get(*label)
-                    .cloned()
-                    .unwrap_or_else(|| color_cycler.cycle().into());
+                    .map_or_else(|| color_cycler.cycle(), |s| s.as_str());
                 let mut group = element::Group::new()
                     .set("class", format!("point {}", label))
-                    .set("fill", color.as_str())
+                    .set("fill", color)
                     .set("stroke", "none");
                 for point in points {
                     let point_xy = point[0];
@@ -174,12 +173,11 @@ impl LabelMeData {
             for (label, rectangles) in rectangle_data {
                 let color = label_colors
                     .get(*label)
-                    .cloned()
-                    .unwrap_or_else(|| color_cycler.cycle().into());
+                    .map_or_else(|| color_cycler.cycle(), |s| s.as_str());
                 let mut group = element::Group::new()
                     .set("class", format!("rectangle {}", label))
                     .set("fill", "none")
-                    .set("stroke", color.as_str())
+                    .set("stroke", color)
                     .set("stroke-width", line_width);
                 for rectangle in rectangles {
                     if rectangle.len() != 2 {
@@ -196,17 +194,16 @@ impl LabelMeData {
             }
         }
         if let Some(polygon_data) = shape_map.get("polygon") {
-            let mut polygon_colors: IndexSet<String> = IndexSet::default();
+            let mut polygon_colors: IndexSet<&str> = IndexSet::default();
             for (label, polygons) in polygon_data {
                 let color = label_colors
                     .get(*label)
-                    .cloned()
-                    .unwrap_or_else(|| color_cycler.cycle().into());
-                polygon_colors.insert(color.clone());
+                    .map_or_else(|| color_cycler.cycle(), |s| s.as_str());
+                polygon_colors.insert(color);
                 let mut group = element::Group::new()
                     .set("class", format!("polygon {}", label))
                     .set("fill", "none")
-                    .set("stroke", color.as_str())
+                    .set("stroke", color)
                     .set("stroke-width", line_width);
                 for polygon in polygons {
                     let value: String = polygon
@@ -250,8 +247,7 @@ impl LabelMeData {
             for (label, circles) in circle_data {
                 let color = label_colors
                     .get(*label)
-                    .cloned()
-                    .unwrap_or_else(|| color_cycler.cycle().into());
+                    .map_or_else(|| color_cycler.cycle(), |s| s.as_str());
                 let mut group = element::Group::new()
                     .set("class", format!("circle {}", label))
                     .set("stroke-width", line_width);
@@ -263,7 +259,7 @@ impl LabelMeData {
                         .set("cx", circle[0].0)
                         .set("cy", circle[0].1)
                         .set("r", point_radius)
-                        .set("fill", color.as_str())
+                        .set("fill", color)
                         .set("stroke", "none");
                     group = group.add(center);
                     if circle.len() > 1 {
@@ -274,7 +270,7 @@ impl LabelMeData {
                             .set("cy", circle[0].1)
                             .set("r", radius)
                             .set("fill", "none")
-                            .set("stroke", color.as_str());
+                            .set("stroke", color);
                         group = group.add(c);
                     }
                 }
@@ -398,7 +394,7 @@ pub fn load_label_colors(filename: &Path) -> Result<LabelColorsHex, LabelColorEr
 
 impl ColorCycler {
     /// Get next color
-    pub fn cycle(&mut self) -> &str {
+    pub fn cycle(&mut self) -> &'static str {
         let c = COLORS[self.i];
         self.i = (self.i + 1) % COLORS.len();
         c
