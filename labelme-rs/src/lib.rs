@@ -196,11 +196,13 @@ impl LabelMeData {
             }
         }
         if let Some(polygon_data) = shape_map.get("polygon") {
+            let mut polygon_colors: IndexSet<String> = IndexSet::default();
             for (label, polygons) in polygon_data {
                 let color = label_colors
                     .get(*label)
                     .cloned()
                     .unwrap_or_else(|| color_cycler.cycle().into());
+                polygon_colors.insert(color.clone());
                 let mut group = element::Group::new()
                     .set("class", format!("polygon {}", label))
                     .set("fill", "none")
@@ -212,19 +214,37 @@ impl LabelMeData {
                         .map(|(a, b)| format!("{} {}", a, b))
                         .collect::<Vec<String>>()
                         .join(" ");
-                    let poly = element::Polygon::new().set("points", value);
+                    let marker_url = format!("url(#dot{})", color);
+                    let poly = element::Polygon::new()
+                        .set("points", value)
+                        .set("marker-start", marker_url.as_str())
+                        .set("marker-mid", marker_url.as_str());
                     group = group.add(poly);
-
-                    for p in polygon.iter() {
-                        let circle = element::Circle::new()
-                            .set("cx", p.0)
-                            .set("cy", p.1)
-                            .set("r", point_radius);
-                        group = group.add(circle);
-                    }
                 }
                 document = document.add(group);
             }
+            let mut defs = svg::node::element::Definitions::new();
+            for color in polygon_colors.into_iter() {
+                let marker = svg::node::element::Marker::new()
+                    .set("id", format!("dot{}", color))
+                    .set(
+                        "viewBox",
+                        format!("0 0 {} {}", point_radius * 2, point_radius * 2),
+                    )
+                    .set("refX", point_radius)
+                    .set("refY", point_radius)
+                    .set("markerWidth", point_radius)
+                    .set("markerHeight", point_radius)
+                    .add(
+                        element::Circle::new()
+                            .set("cx", point_radius)
+                            .set("cy", point_radius)
+                            .set("r", point_radius)
+                            .set("fill", color),
+                    );
+                defs = defs.add(marker);
+            }
+            document = document.add(defs);
         }
         if let Some(circle_data) = shape_map.get("circle") {
             for (label, circles) in circle_data {
