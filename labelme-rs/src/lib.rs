@@ -27,7 +27,7 @@ pub struct Shape {
     pub flags: Flags,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[allow(non_snake_case)]
 pub struct LabelMeData {
     pub version: String,
@@ -37,6 +37,21 @@ pub struct LabelMeData {
     pub imageData: Option<String>,
     pub imageHeight: usize,
     pub imageWidth: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+struct LabelMeDataLine {
+    #[serde(flatten)]
+    data: LabelMeData,
+    filename: String,
+}
+
+impl TryFrom<&str> for LabelMeDataLine {
+    type Error = serde_json::Error;
+
+    fn try_from(json: &str) -> Result<Self, Self::Error> {
+        serde_json::from_str(json)
+    }
 }
 
 pub fn img2base64(img: &image::DynamicImage, format: image::ImageOutputFormat) -> String {
@@ -408,4 +423,16 @@ impl Default for ColorCycler {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[test]
+fn test_lmdata_line() -> anyhow::Result<()> {
+    let lmd = LabelMeData::default();
+    let lmd_string = serde_json::to_string(&lmd)?;
+    let mut lmdl: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&lmd_string)?;
+    assert!(lmdl.insert("filename".into(), "1.json".into()).is_none());
+    let lmdl_string = serde_json::to_string(&lmdl)?;
+    let restored: LabelMeDataLine = lmdl_string.as_str().try_into()?;
+    assert_eq!(restored.filename, "1.json");
+    Ok(())
 }

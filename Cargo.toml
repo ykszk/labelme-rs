@@ -5,7 +5,7 @@ members = [
     "lmrspy",
     "xtask"
 ]
-default-members=["app"]
+default-members=["app", "labelme-rs"]
 resolver = "2"
 
 [workspace.package]
