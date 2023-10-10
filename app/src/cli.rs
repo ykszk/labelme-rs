@@ -29,6 +29,8 @@ pub enum Command {
     Drop(DropCmdArgs),
     /// Join ndjson files
     Join(JoinCmdArgs),
+    /// Scale point coordinates according to the resize parameter
+    Resize(ResizeCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -151,6 +153,14 @@ pub struct SwapCmdArgs {
     /// Swap prefix of the value associated by the given key instead of `imagePath`
     #[clap(long, default_value = "imagePath")]
     pub key: String,
+}
+
+#[derive(Args, Debug)]
+pub struct ResizeCmdArgs {
+    /// Input jsonl/ndjson. Specify `-` to use stdin
+    pub input: PathBuf,
+    /// Resize parameter. Specify in imagemagick's `-resize`-like format
+    pub param: String,
 }
 
 #[derive(Debug, Args)]

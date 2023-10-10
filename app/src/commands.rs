@@ -13,6 +13,7 @@ mod join;
 mod jsonl;
 mod lm2svg;
 mod lms2html;
+mod resize;
 mod split_jsonl;
 mod swap_prefix;
 mod validate;
@@ -32,5 +33,6 @@ fn main() -> Result<()> {
         Command::Filter(args) => filter::cmd(args),
         Command::Drop(args) => drop_dups::cmd(args),
         Command::Join(args) => join::cmd(args),
+        Command::Resize(args) => resize::cmd(args),
     }
 }

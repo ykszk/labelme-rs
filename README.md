@@ -106,6 +106,13 @@ Join ndjson files
 lmrs join left.ndjson right.ndjson
 ```
 
+## resize
+Scale point coordinates according to the resize parameter
+
+```console
+lmrs jsonl . | lmrs resize - 50%
+```
+
 # Python binding
 Install:
 
