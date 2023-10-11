@@ -63,7 +63,9 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             let mut json_data: serde_json::Map<String, serde_json::Value> =
                 serde_json::from_str(&line)?;
             let v_filename = json_data.remove("filename").context("filename not found")?;
-            let serde_json::Value::String(filename) = v_filename else {panic!("expected String")};
+            let serde_json::Value::String(filename) = v_filename else {
+                panic!("expected String")
+            };
             let json_data = labelme_rs::LabelMeData::try_from(line.as_str())?;
             entries.push((filename.into(), Box::new(json_data)));
         }

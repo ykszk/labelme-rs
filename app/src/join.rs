@@ -91,7 +91,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
         .init();
-    let input_set: IndexSet<PathBuf> = IndexSet::from_iter(args.input.into_iter());
+    let input_set: IndexSet<PathBuf> = IndexSet::from_iter(args.input);
     anyhow::ensure!(input_set.len() > 1, "Need more than one input");
     debug!("Read and join ndjsons");
     let joined: Result<IndexMap<String, JzonObject>, _> = input_set

@@ -24,7 +24,7 @@ use lmrs::cli::Command;
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Html(args) => lms2html::cmd(args),
+        Command::Catalog(args) => lms2html::cmd(args),
         Command::Svg(args) => lm2svg::cmd(args),
         Command::Validate(args) => validate::cmd(args),
         Command::Swap(args) => swap_prefix::cmd(args),

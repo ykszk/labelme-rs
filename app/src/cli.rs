@@ -10,8 +10,9 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Create HTML from a labelme directory
-    Html(HtmlCmdArgs),
+    /// Create HTML catalog from a labelme directory
+    #[clap(aliases = &["html"])]
+    Catalog(HtmlCmdArgs),
     /// Create SVG image from a labeme annotation (json)
     Svg(SvgCmdArgs),
     /// Validate labelme annotations
