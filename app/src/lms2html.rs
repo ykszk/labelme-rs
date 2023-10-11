@@ -1,7 +1,6 @@
 use anyhow::{bail, ensure, Context, Result};
 use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::{IndexMap, IndexSet};
-use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -46,8 +45,8 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         .map(|entry| {
             let entry = entry?;
             let s = std::fs::read_to_string(&entry)?;
-            let obj = labelme_rs::LabelMeData::try_from(s.as_str());
-            Ok((entry, obj?.into()))
+            let obj = labelme_rs::LabelMeData::try_from(s.as_str())?;
+            Ok((entry, obj.into()))
         })
         .collect();
         entries?
@@ -57,19 +56,15 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         } else {
             Box::new(BufReader::new(File::open(&args.input)?))
         };
-        let mut entries: Vec<_> = Vec::new();
-        for line in reader.lines() {
-            let line = line?;
-            let mut json_data: serde_json::Map<String, serde_json::Value> =
-                serde_json::from_str(&line)?;
-            let v_filename = json_data.remove("filename").context("filename not found")?;
-            let serde_json::Value::String(filename) = v_filename else {
-                panic!("expected String")
-            };
-            let json_data = labelme_rs::LabelMeData::try_from(line.as_str())?;
-            entries.push((filename.into(), Box::new(json_data)));
-        }
-        entries
+        let entries: Result<Vec<_>> = reader
+            .lines()
+            .map(|line| {
+                let line = line?;
+                let json_data = labelme_rs::LabelMeDataLine::try_from(line.as_str())?;
+                Ok((PathBuf::from(json_data.filename), Box::new(json_data.data)))
+            })
+            .collect();
+        entries?
     };
 
     ensure!(!entries.is_empty(), "No json file found.");

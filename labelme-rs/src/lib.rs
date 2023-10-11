@@ -71,11 +71,12 @@ impl LabelMeDataWImage {
     }
 }
 
+/// LabeleMeData with additional `filename` field for ndjsons
 #[derive(Serialize, Deserialize)]
-struct LabelMeDataLine {
+pub struct LabelMeDataLine {
     #[serde(flatten)]
-    data: LabelMeData,
-    filename: String,
+    pub data: LabelMeData,
+    pub filename: String,
 }
 
 impl TryFrom<&str> for LabelMeDataLine {
