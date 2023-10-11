@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use labelme_rs::image::GenericImageView;
 use std::{io::Read, path::PathBuf};
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
@@ -7,7 +6,7 @@ use lmrs::cli::SvgCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let mut json_data = labelme_rs::LabelMeData::try_from(if args.input.as_os_str() == "-" {
+    let json_data = labelme_rs::LabelMeData::try_from(if args.input.as_os_str() == "-" {
         let mut buf = String::new();
         std::io::stdin().read_to_string(&mut buf)?;
         buf
@@ -31,22 +30,19 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             .context("Failed to get parent")?
             .into()
     };
-    std::env::set_current_dir(&json_dir)?;
-
-    let img_filename = json_dir.join(&json_data.imagePath);
+    std::env::set_current_dir(json_dir)?;
+    let mut data_w_image: labelme_rs::LabelMeDataWImage = json_data.try_into()?;
     std::env::set_current_dir(original_dir)?;
-    let mut img = labelme_rs::image::open(img_filename)?;
     if let Some(resize) = args.resize {
-        let resize_param = lmrs::ResizeParam::try_from(resize.as_str())?;
-        let orig_size = img.dimensions();
-        img = resize_param.resize(&img);
-        let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
-        if (scale - 1.0).abs() > f64::EPSILON {
-            info!("Points are scaled by {}", scale);
-            json_data.scale(scale);
-        }
+        let resize_param = labelme_rs::ResizeParam::try_from(resize.as_str())?;
+        data_w_image.resize(&resize_param);
     }
-    let document = json_data.to_svg(&label_colors, args.radius, args.line_width, &img);
+    let document = data_w_image.data.to_svg(
+        &label_colors,
+        args.radius,
+        args.line_width,
+        &data_w_image.image,
+    );
     labelme_rs::svg::save(args.output, &document)?;
     Ok(())
 }

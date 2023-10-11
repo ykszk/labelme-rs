@@ -3,6 +3,7 @@ pub use image;
 use image::GenericImageView;
 pub use indexmap;
 use indexmap::{IndexMap, IndexSet};
+use regex::Regex;
 pub use serde;
 use serde::{Deserialize, Serialize};
 pub use serde_json;
@@ -13,6 +14,8 @@ pub use svg;
 use svg::node::element;
 use zune_jpeg::zune_core::colorspace::ColorSpace;
 use zune_jpeg::JpegDecoder;
+#[macro_use]
+extern crate lazy_static;
 
 pub type Flags = IndexMap<String, bool>;
 pub type FlagSet = IndexSet<String>;
@@ -39,6 +42,35 @@ pub struct LabelMeData {
     pub imageWidth: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct LabelMeDataWImage {
+    pub data: LabelMeData,
+    pub image: image::DynamicImage,
+}
+
+impl TryFrom<LabelMeData> for LabelMeDataWImage {
+    type Error = image::ImageError;
+
+    fn try_from(data: LabelMeData) -> Result<Self, Self::Error> {
+        let image = image::open(&data.imagePath)?;
+        Ok(Self { data, image })
+    }
+}
+
+impl LabelMeDataWImage {
+    pub fn new(data: LabelMeData, image: image::DynamicImage) -> Self {
+        Self { data, image }
+    }
+    pub fn resize(&mut self, param: &ResizeParam) {
+        let orig_dim = self.image.dimensions();
+        self.image = param.resize(&self.image);
+        let scale = self.image.dimensions().0 as f64 / orig_dim.0 as f64;
+        if scale != 0.0 {
+            self.data.scale(scale);
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct LabelMeDataLine {
     #[serde(flatten)]
@@ -51,6 +83,89 @@ impl TryFrom<&str> for LabelMeDataLine {
 
     fn try_from(json: &str) -> Result<Self, Self::Error> {
         serde_json::from_str(json)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ResizeParam {
+    Percentage(f64),
+    Size(u32, u32),
+}
+
+lazy_static! {
+    static ref RE_PERCENT: Regex = Regex::new(r"^(\d+)%$").unwrap();
+    static ref RE_SIZE: Regex = Regex::new(r"^(\d+)x(\d+)$").unwrap();
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ResizeParamError {
+    #[error("int parse error: {0}")]
+    ParseIntError(std::num::ParseIntError),
+    #[error("Invalid format: {0}")]
+    FormatError(String),
+}
+
+impl TryFrom<&str> for ResizeParam {
+    type Error = ResizeParamError;
+
+    /// Parse resize parameter
+    /// ```
+    /// use labelme_rs::ResizeParam;
+    /// assert_eq!(ResizeParam::try_from("33%").unwrap(), ResizeParam::Percentage(0.33));
+    /// assert_eq!(ResizeParam::try_from("300x400").unwrap(), ResizeParam::Size(300, 400));
+    /// assert!(ResizeParam::try_from("300x400!").is_err()); // Flags `!><^%@` etc. are not supported.
+    /// ```
+    fn try_from(param: &str) -> Result<Self, Self::Error> {
+        if let Some(cap) = RE_PERCENT.captures(param) {
+            let p: f64 = cap
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse::<u32>()
+                .map_err(ResizeParamError::ParseIntError)? as f64
+                / 100.0;
+            Ok(ResizeParam::Percentage(p))
+        } else if let Some(cap) = RE_SIZE.captures(param) {
+            let w: u32 = cap
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse()
+                .map_err(ResizeParamError::ParseIntError)?;
+            let h: u32 = cap
+                .get(2)
+                .unwrap()
+                .as_str()
+                .parse()
+                .map_err(ResizeParamError::ParseIntError)?;
+            Ok(ResizeParam::Size(w, h))
+        } else {
+            Err(ResizeParamError::FormatError(param.into()))
+        }
+    }
+}
+
+impl ResizeParam {
+    /// Resize image
+    pub fn resize(&self, img: &image::DynamicImage) -> image::DynamicImage {
+        match self {
+            ResizeParam::Percentage(p) => img.thumbnail(
+                (p * img.dimensions().0 as f64).round() as u32,
+                (p * img.dimensions().1 as f64).round() as u32,
+            ),
+            ResizeParam::Size(w, h) => img.thumbnail(*w, *h),
+        }
+    }
+    /// Calculate scaling factor for the given image dimension
+    pub fn scale(&self, width: u32, height: u32) -> f64 {
+        match self {
+            ResizeParam::Percentage(p) => *p,
+            ResizeParam::Size(nwidth, nheight) => {
+                let wratio = *nwidth as f64 / width as f64;
+                let hratio = *nheight as f64 / height as f64;
+                f64::min(wratio, hratio)
+            }
+        }
     }
 }
 
@@ -424,15 +539,34 @@ impl Default for ColorCycler {
         Self::new()
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn test_lmdata_line() -> anyhow::Result<()> {
-    let lmd = LabelMeData::default();
-    let lmd_string = serde_json::to_string(&lmd)?;
-    let mut lmdl: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&lmd_string)?;
-    assert!(lmdl.insert("filename".into(), "1.json".into()).is_none());
-    let lmdl_string = serde_json::to_string(&lmdl)?;
-    let restored: LabelMeDataLine = lmdl_string.as_str().try_into()?;
-    assert_eq!(restored.filename, "1.json");
-    Ok(())
+    #[test]
+    fn test_lmdata_line() -> anyhow::Result<()> {
+        let lmd = LabelMeData::default();
+        let lmd_string = serde_json::to_string(&lmd)?;
+        let mut lmdl: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&lmd_string)?;
+        assert!(lmdl.insert("filename".into(), "1.json".into()).is_none());
+        let lmdl_string = serde_json::to_string(&lmdl)?;
+        let restored: LabelMeDataLine = lmdl_string.as_str().try_into()?;
+        assert_eq!(restored.filename, "1.json");
+        Ok(())
+    }
+
+    #[test]
+    fn test_resize() -> anyhow::Result<()> {
+        let param = ResizeParam::Size(50, 10);
+        let scale = param.scale(100, 100);
+        assert_eq!(scale, 0.1);
+        let param = ResizeParam::Size(10, 50);
+        let scale = param.scale(100, 100);
+        assert_eq!(scale, 0.1);
+        let param = ResizeParam::Size(1000, 200);
+        let scale = param.scale(100, 100);
+        assert_eq!(scale, 2.0);
+        Ok(())
+    }
 }

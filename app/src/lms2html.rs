@@ -146,7 +146,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
 
     let mut svgs: Vec<String> = Vec::with_capacity(entries.len());
     let resize_param = match args.resize {
-        Some(s) => Some(lmrs::ResizeParam::try_from(s.as_str())?),
+        Some(s) => Some(labelme_rs::ResizeParam::try_from(s.as_str())?),
         None => None,
     };
 

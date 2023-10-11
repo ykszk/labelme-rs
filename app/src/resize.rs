@@ -1,14 +1,8 @@
 use anyhow::{ensure, Context, Result};
+use labelme_rs::ResizeParam;
 use lmrs::cli::ResizeCmdArgs as CmdArgs;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-
-fn resize_scale(width: u32, height: u32, nwidth: u32, nheight: u32) -> f64 {
-    let wratio = nwidth as f64 / width as f64;
-    let hratio = nheight as f64 / height as f64;
-
-    f64::min(wratio, hratio)
-}
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
     let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
@@ -18,7 +12,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     };
     for line in reader.lines() {
         let line = line?;
-        let resize_param = lmrs::ResizeParam::try_from(args.param.as_str())?;
+        let resize_param = ResizeParam::try_from(args.param.as_str())?;
         let mut obj = jzon::parse(&line)?;
         let orig_width = obj
             .get("imageWidth")
@@ -30,10 +24,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             .context("imageHeight field not found.")?
             .as_u32()
             .unwrap();
-        let scale = match resize_param {
-            lmrs::ResizeParam::Percentage(p) => p,
-            lmrs::ResizeParam::Size(w, h) => resize_scale(orig_width, orig_height, w, h),
-        };
+        let scale = resize_param.scale(orig_width, orig_height);
         for shape in obj
             .get_mut("shapes")
             .context("`shapes` field not found.")?
@@ -57,16 +48,5 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         }
         println!("{}", obj);
     }
-    Ok(())
-}
-
-#[test]
-fn test_resize() -> anyhow::Result<()> {
-    let scale = resize_scale(100, 100, 50, 10);
-    assert_eq!(scale, 0.1);
-    let scale = resize_scale(100, 100, 10, 50);
-    assert_eq!(scale, 0.1);
-    let scale = resize_scale(100, 100, 1000, 200);
-    assert_eq!(scale, 2.0);
     Ok(())
 }

@@ -1,9 +1,7 @@
 pub use chumsky::prelude::*;
-use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::IndexMap;
 use labelme_rs::serde_json;
 pub use labelme_rs::{FlagSet, LabelMeData, Point};
-use regex::Regex;
 use std::error;
 use std::fmt;
 use std::{
@@ -12,8 +10,6 @@ use std::{
     path::Path,
 };
 use thiserror::Error;
-#[macro_use]
-extern crate lazy_static;
 
 pub mod cli;
 
@@ -268,81 +264,6 @@ pub fn check_json(
         Err(CheckError::EvaluatedFalse(rule, vals))
     } else {
         Err(CheckError::EvaluatedMultipleFalses(errors))
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ResizeParam {
-    Percentage(f64),
-    Size(u32, u32),
-}
-
-lazy_static! {
-    static ref RE_PERCENT: Regex = Regex::new(r"^(\d+)%$").unwrap();
-    static ref RE_SIZE: Regex = Regex::new(r"^(\d+)x(\d+)$").unwrap();
-}
-
-// pub enum ParseError {
-//     #[error("parse error: {0}")]
-//     Error(String),
-// }
-
-#[derive(Error, Debug)]
-pub enum ResizeParamError {
-    #[error("int parse error: {0}")]
-    ParseIntError(std::num::ParseIntError),
-    #[error("Invalid format: {0}")]
-    FormatError(String),
-}
-
-impl TryFrom<&str> for ResizeParam {
-    type Error = ResizeParamError;
-
-    /// Parse resize parameter
-    /// ```
-    /// assert_eq!(lmrs::ResizeParam::try_from("33%").unwrap(), lmrs::ResizeParam::Percentage(0.33));
-    /// assert_eq!(lmrs::ResizeParam::try_from("300x400").unwrap(), lmrs::ResizeParam::Size(300, 400));
-    /// assert!(lmrs::ResizeParam::try_from("300x400!").is_err()); // Flags `!><^%@` etc. are not supported.
-    /// ```
-    fn try_from(param: &str) -> Result<Self, Self::Error> {
-        if let Some(cap) = RE_PERCENT.captures(param) {
-            let p: f64 = cap
-                .get(1)
-                .unwrap()
-                .as_str()
-                .parse::<u32>()
-                .map_err(ResizeParamError::ParseIntError)? as f64
-                / 100.0;
-            Ok(ResizeParam::Percentage(p))
-        } else if let Some(cap) = RE_SIZE.captures(param) {
-            let w: u32 = cap
-                .get(1)
-                .unwrap()
-                .as_str()
-                .parse()
-                .map_err(ResizeParamError::ParseIntError)?;
-            let h: u32 = cap
-                .get(2)
-                .unwrap()
-                .as_str()
-                .parse()
-                .map_err(ResizeParamError::ParseIntError)?;
-            Ok(ResizeParam::Size(w, h))
-        } else {
-            Err(ResizeParamError::FormatError(param.into()))
-        }
-    }
-}
-
-impl ResizeParam {
-    pub fn resize(&self, img: &labelme_rs::image::DynamicImage) -> labelme_rs::image::DynamicImage {
-        match self {
-            ResizeParam::Percentage(p) => img.thumbnail(
-                (p * img.dimensions().0 as f64) as u32,
-                (p * img.dimensions().1 as f64) as u32,
-            ),
-            ResizeParam::Size(w, h) => img.thumbnail(*w, *h),
-        }
     }
 }
 
