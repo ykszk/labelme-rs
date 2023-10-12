@@ -486,10 +486,16 @@ impl From<Color> for String {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LabelColorsInConfig {
+    label_colors: LabelColors,
+}
+
 pub type LabelColors = IndexMap<String, Color>;
 pub type LabelColorsHex = IndexMap<String, String>;
 
 pub static COLORS: [&str; 6] = ["red", "green", "blue", "cyan", "magenta", "yellow"];
+#[derive(Debug, Default, Clone, Copy)]
 pub struct ColorCycler {
     i: usize,
 }
@@ -505,21 +511,12 @@ pub enum LabelColorError {
 }
 
 pub fn load_label_colors(filename: &Path) -> Result<LabelColorsHex, LabelColorError> {
-    let config: serde_yaml::Value = serde_yaml::from_reader(std::io::BufReader::new(
+    let config: LabelColorsInConfig = serde_yaml::from_reader(std::io::BufReader::new(
         std::fs::File::open(filename).map_err(LabelColorError::IoError)?,
     ))
     .map_err(LabelColorError::ValueError)?;
-    let colors = config.get("label_colors");
-    let label_colors: LabelColors = match colors {
-        Some(colors) => {
-            serde_yaml::from_value(colors.to_owned()).map_err(LabelColorError::ValueError)?
-        }
-        None => LabelColors::default(),
-    };
-    let hex = label_colors
-        .into_iter()
-        .map(|(k, v)| (k, v.into()))
-        .collect();
+    let hex =
+        LabelColorsHex::from_iter(config.label_colors.into_iter().map(|(k, v)| (k, v.into())));
     Ok(hex)
 }
 
@@ -535,11 +532,6 @@ impl ColorCycler {
     }
 }
 
-impl Default for ColorCycler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
