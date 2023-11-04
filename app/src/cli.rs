@@ -166,7 +166,7 @@ pub struct ResizeCmdArgs {
 
 #[derive(Debug, Args)]
 pub struct JsonlCmdArgs {
-    /// Input json directries
+    /// Directories, json files, or ndjson/jsonl files
     #[clap(required=true, num_args=1..)]
     pub input: Vec<PathBuf>,
     /// Key for filename

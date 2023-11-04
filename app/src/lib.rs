@@ -238,7 +238,7 @@ pub fn check_json(
     }
     let mut point_map: IndexMap<String, Vec<Point>> = IndexMap::new();
     for shape in json_data.shapes.into_iter() {
-        let vec: &mut Vec<Point> = point_map.entry(shape.label).or_insert_with(Vec::new);
+        let vec: &mut Vec<Point> = point_map.entry(shape.label).or_default();
         vec.push(shape.points[0]);
     }
     let vars: Vec<_> = point_map
