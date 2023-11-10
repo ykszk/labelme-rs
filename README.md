@@ -113,6 +113,13 @@ Scale point coordinates according to the resize parameter
 lmrs jsonl . | lmrs resize - 50%
 ```
 
+## init
+Create empty labelme json for the image
+
+```console
+lmrs init image_directory | lmrs split -o json_directory
+```
+
 # Python binding
 Install:
 

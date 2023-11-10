@@ -9,6 +9,7 @@ use anyhow::Result;
 
 mod drop_dups;
 mod filter;
+mod init;
 mod join;
 mod jsonl;
 mod lm2svg;
@@ -34,5 +35,6 @@ fn main() -> Result<()> {
         Command::Drop(args) => drop_dups::cmd(args),
         Command::Join(args) => join::cmd(args),
         Command::Resize(args) => resize::cmd(args),
+        Command::Init(args) => init::cmd(args),
     }
 }

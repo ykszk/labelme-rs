@@ -32,6 +32,8 @@ pub enum Command {
     Join(JoinCmdArgs),
     /// Scale point coordinates according to the resize parameter
     Resize(ResizeCmdArgs),
+    /// Create empty labelme json for the image
+    Init(InitCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -169,7 +171,19 @@ pub struct JsonlCmdArgs {
     /// Directories, json files, or ndjson/jsonl files
     #[clap(required=true, num_args=1..)]
     pub input: Vec<PathBuf>,
-    /// Key for filename
+    /// Key for filename. Only for ndjson output
+    #[clap(long, default_value = "filename", id = "key")]
+    pub filename: String,
+}
+
+#[derive(Debug, Args)]
+pub struct InitCmdArgs {
+    /// Input image or image containing directory
+    pub input: PathBuf,
+    /// Image extension
+    #[clap(long, default_value = "jpg")]
+    pub extension: String,
+    /// Key for filename. Only for ndjson output
     #[clap(long, default_value = "filename", id = "key")]
     pub filename: String,
 }

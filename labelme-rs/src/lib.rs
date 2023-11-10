@@ -72,7 +72,7 @@ impl LabelMeDataWImage {
 }
 
 /// LabeleMeData with additional `filename` field for ndjsons
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct LabelMeDataLine {
     #[serde(flatten)]
     pub data: LabelMeData,
