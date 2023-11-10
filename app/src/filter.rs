@@ -11,9 +11,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         let ar = lmrs::load_rules(&filename)?;
         rules.extend(ar);
     }
-    if rules.is_empty() {
-        panic!("No rule is found.");
-    }
+    assert!(!rules.is_empty(), "No rule is found.");
     let asts = lmrs::parse_rules(&rules)?;
     let flag_set: IndexSet<String> = args.flag.into_iter().collect();
     let ignore_set: IndexSet<String> = args.ignore.into_iter().collect();

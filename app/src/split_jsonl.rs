@@ -27,7 +27,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             "Output file {output_filename:?} already exists. Add \"--overwrite\" option to force overwriting.");
         }
         let writer = std::io::BufWriter::new(std::fs::File::create(&output_filename)?);
-        serde_json::to_writer_pretty(writer, &json_data)?
+        serde_json::to_writer_pretty(writer, &json_data)?;
     }
     Ok(())
 }

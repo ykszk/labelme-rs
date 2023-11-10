@@ -110,18 +110,18 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                 let mut all_labels: IndexSet<&str> = IndexSet::default();
                 let mut all_shapes: IndexSet<&str> = IndexSet::default();
                 for (_, json_data) in chunk {
-                    for (flag, checked) in json_data.flags.iter() {
+                    for (flag, checked) in &json_data.flags {
                         if *checked {
                             all_tags.insert(flag);
                         }
                     }
-                    for shape in json_data.shapes.iter() {
+                    for shape in &json_data.shapes {
                         all_labels.insert(&shape.label);
                         all_shapes.insert(&shape.shape_type);
                     }
                 }
                 (all_tags, all_labels, all_shapes)
-            }))
+            }));
         }
         let mut cycler = labelme_rs::ColorCycler::new();
         for handle in handles {

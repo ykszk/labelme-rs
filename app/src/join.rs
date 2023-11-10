@@ -60,7 +60,7 @@ fn join_left(
     right: IndexMap<String, JzonObject>,
 ) -> IndexMap<String, JzonObject> {
     let mut left = left;
-    for (key, right_obj) in right.into_iter() {
+    for (key, right_obj) in right {
         left.entry(key).and_modify(|left_obj| {
             lmrs::merge(left_obj, right_obj);
         });
@@ -77,7 +77,7 @@ fn join_outer(
         let entry = left.entry(key);
         match entry {
             labelme_rs::indexmap::map::Entry::Occupied(mut left_obj) => {
-                lmrs::merge(left_obj.get_mut(), right_obj)
+                lmrs::merge(left_obj.get_mut(), right_obj);
             }
             labelme_rs::indexmap::map::Entry::Vacant(entry) => {
                 entry.insert(right_obj);

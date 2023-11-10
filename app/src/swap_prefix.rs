@@ -148,12 +148,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         bar.finish();
     } else {
         debug!("File or stdin input");
-        if args
-            .input
-            .extension()
-            .map(|ext| ext == "json")
-            .unwrap_or(false)
-        {
+        if args.input.extension().is_some_and(|ext| ext == "json") {
             // single json
             let output = args.output.unwrap_or_else(|| args.input.clone());
             swap_prefix_file(&args.input, &args.key, &args.prefix, &output, true)?;
@@ -161,8 +156,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             || args
                 .input
                 .extension()
-                .map(|ext| ext == "jsonl" || ext == "ndjson")
-                .unwrap_or(false)
+                .is_some_and(|ext| ext == "jsonl" || ext == "ndjson")
         {
             // jsonl or ndjson
             let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {

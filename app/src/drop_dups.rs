@@ -39,10 +39,10 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
 
 #[test]
 fn test_drop() -> anyhow::Result<()> {
+    use std::io::Cursor;
     let ndjson = r#"{"l":"1","k":"v"}
     {"l":"2","k":"v"}"#;
     let mut buf = Vec::new();
-    use std::io::Cursor;
     let cur = Cursor::new(&mut buf);
     drop(BufReader::new(Cursor::new(ndjson)), "k", cur)?;
     let dropped = String::from_utf8(buf)?;

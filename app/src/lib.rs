@@ -311,14 +311,10 @@ pub fn check_json(
 /// lmrs::merge(&mut o1, o2);
 /// ```
 pub fn merge(left: &mut jzon::JsonValue, right: jzon::JsonValue) {
-    let left = if let jzon::JsonValue::Object(left) = left {
-        left
-    } else {
+    let jzon::JsonValue::Object(left) = left else {
         panic!("Invalid json input");
     };
-    let right = if let jzon::JsonValue::Object(right) = right {
-        right
-    } else {
+    let jzon::JsonValue::Object(right) = right else {
         panic!("Invalid json input");
     };
     for (key, r_value) in right.into_iter() {
@@ -347,7 +343,7 @@ pub fn merge(left: &mut jzon::JsonValue, right: jzon::JsonValue) {
                 ),
             }
         } else {
-            left.insert(&key, r_value)
+            left.insert(&key, r_value);
         }
     }
 }
