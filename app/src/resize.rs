@@ -1,8 +1,9 @@
-use anyhow::{ensure, Context, Result};
-use labelme_rs::ResizeParam;
+use anyhow::{Context, Result};
+use labelme_rs::{serde_json, LabelMeDataLine, ResizeParam};
 use lmrs::cli::ResizeCmdArgs as CmdArgs;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{stdout, BufRead, BufReader, BufWriter};
+use std::path::PathBuf;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
     let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
@@ -10,43 +11,28 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     } else {
         Box::new(BufReader::new(File::open(&args.input)?))
     };
+    let resize_param = ResizeParam::try_from(args.param.as_str())?;
     for line in reader.lines() {
         let line = line?;
-        let resize_param = ResizeParam::try_from(args.param.as_str())?;
-        let mut obj = jzon::parse(&line)?;
-        let orig_width = obj
-            .get("imageWidth")
-            .context("imageWidth field not found.")?
-            .as_u32()
-            .unwrap();
-        let orig_height = obj
-            .get("imageHeight")
-            .context("imageHeight field not found.")?
-            .as_u32()
-            .unwrap();
-        let scale = resize_param.scale(orig_width, orig_height);
-        for shape in obj
-            .get_mut("shapes")
-            .context("`shapes` field not found.")?
-            .as_array_mut()
-            .context("`shaped` field is not an array")?
-            .iter_mut()
-        {
-            let points = shape
-                .get_mut("points")
-                .context("`points` field not found in shapes")?
-                .as_array_mut()
-                .context("`points` field is not an array")?;
-            for point in points {
-                let p = point
-                    .as_array_mut()
-                    .context("points is in invalid format")?;
-                ensure!(p.len() == 2, "The number of points is not 2");
-                p[0] = jzon::JsonValue::from(scale * p[0].as_f64().context("Invalid point value")?);
-                p[1] = jzon::JsonValue::from(scale * p[1].as_f64().context("Invalid point value")?);
-            }
+        let mut lm_line: LabelMeDataLine = line.as_str().try_into()?;
+        let scale = resize_param.scale(
+            lm_line.data.imageWidth as u32,
+            lm_line.data.imageHeight as u32,
+        );
+        lm_line.data.scale(scale);
+        let writer = BufWriter::new(stdout().lock());
+        serde_json::to_writer(writer, &lm_line)?;
+        println!();
+        if let Some(ref image_dir) = args.image {
+            let image_path = PathBuf::from(&lm_line.data.imagePath);
+            let mut data_w_image: labelme_rs::LabelMeDataWImage = lm_line
+                .data
+                .try_into()
+                .with_context(|| format!("Opening {:?}", image_path))?;
+            data_w_image.resize(&resize_param);
+            let outname = image_dir.join(image_path.file_name().unwrap());
+            data_w_image.image.save(outname)?;
         }
-        println!("{}", obj);
     }
     Ok(())
 }

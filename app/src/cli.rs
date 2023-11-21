@@ -164,6 +164,9 @@ pub struct ResizeCmdArgs {
     pub input: PathBuf,
     /// Resize parameter. Specify in imagemagick's `-resize`-like format
     pub param: String,
+    /// Output directory for resized images
+    #[clap(long)]
+    pub image: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
