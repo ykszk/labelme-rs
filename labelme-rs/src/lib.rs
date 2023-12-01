@@ -62,11 +62,10 @@ impl LabelMeDataWImage {
         Self { data, image }
     }
     pub fn resize(&mut self, param: &ResizeParam) {
-        let orig_dim = self.image.dimensions();
-        self.image = param.resize(&self.image);
-        let scale = self.image.dimensions().0 as f64 / orig_dim.0 as f64;
-        if scale != 0.0 {
-            self.data.scale(scale);
+        let scale = param.scale(self.image.width(), self.image.height());
+        if scale > 0.0 && scale != 1.0 {
+            self.image = param.resize(&self.image);
+            self.data.scale(scale)
         }
     }
 }

@@ -13,9 +13,15 @@ struct Tasks {
 #[derive(Subcommand)]
 enum Task {
     /// Print man
-    Man {},
+    Man(ManArgs),
     /// Generate completion files. Dry run by default. Add `--install` option to perform actual installation
     Complete(CompleteArgs),
+}
+
+#[derive(Debug, Args)]
+struct ManArgs {
+    /// Output directory
+    output: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -25,7 +31,7 @@ struct CompleteArgs {
     /// Override installation installation directory
     output: Option<PathBuf>,
     /// Binary name
-    #[clap(default_value = "lmrs")]
+    #[clap(long, default_value = "lmrs")]
     name: String,
     /// Execute installation
     #[clap(long, action)]
@@ -44,9 +50,31 @@ fn main() {
     let mut cmd = lmrs::cli::Cli::command();
 
     match task.task {
-        Task::Man {} => {
-            let man = clap_mangen::Man::new(cmd);
-            man.render(&mut std::io::stdout()).unwrap();
+        Task::Man(args) => {
+            let outdir = if let Some(outdir) = args.output.as_ref() {
+                if !outdir.exists() {
+                    std::fs::create_dir_all(outdir).unwrap();
+                }
+                outdir
+            } else {
+                panic!("Default output dierctory is not implemented. Specify OUTPUT");
+            };
+
+            let cmd_name: String = cmd.get_name().into();
+            let version: String = cmd.get_version().unwrap().into();
+            let ext = ".1";
+            cmd.get_subcommands().cloned().for_each(|subcommand| {
+                let subcmd_name =
+                    format!("{} {}", cmd_name, subcommand.get_name().replace(' ', "-"));
+                let named = subcommand.name(&subcmd_name).version(&version);
+                let man = clap_mangen::Man::new(named);
+                let outname = outdir.join(subcmd_name.replace(' ', "-") + ext);
+                let mut file = std::fs::File::create(outname).unwrap();
+                man.render(&mut file).unwrap();
+            });
+            let outname = outdir.join(cmd.get_name().to_owned() + ext);
+            let mut file = std::fs::File::create(outname).unwrap();
+            clap_mangen::Man::new(cmd).render(&mut file).unwrap();
         }
         Task::Complete(args) => match args.shell {
             Shell::Bash => {
