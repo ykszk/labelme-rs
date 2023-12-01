@@ -87,6 +87,9 @@ impl TryFrom<&str> for LabelMeDataLine {
     }
 }
 
+/// Resizing parameter represented by percentage or size.
+/// Resizing does not change image's aspect ratio.
+/// Use imagemagick's `-resize`-like format to construct.
 #[derive(Debug, PartialEq)]
 pub enum ResizeParam {
     Percentage(f64),
@@ -150,18 +153,45 @@ impl ResizeParam {
     /// Resize image
     pub fn resize(&self, img: &image::DynamicImage) -> image::DynamicImage {
         match self {
-            ResizeParam::Percentage(p) => img.thumbnail(
-                (p * img.dimensions().0 as f64).round() as u32,
-                (p * img.dimensions().1 as f64).round() as u32,
-            ),
-            ResizeParam::Size(w, h) => img.thumbnail(*w, *h),
+            Self::Percentage(..) => {
+                let size = self.size(img.dimensions().0, img.dimensions().1);
+                img.thumbnail(size.0, size.1)
+            }
+            Self::Size(w, h) => img.thumbnail(*w, *h),
         }
     }
-    /// Calculate scaling factor for the given image dimension
+
+    /// Calculate size after resizing
+    /// ```
+    /// use labelme_rs::ResizeParam;
+    /// let param = ResizeParam::try_from("300x400").unwrap();
+    /// assert_eq!(param.size(512, 512), (300, 300));
+    pub fn size(&self, width: u32, height: u32) -> (u32, u32) {
+        match self {
+            Self::Percentage(p) => (
+                (p * width as f64).round() as u32,
+                (p * height as f64).round() as u32,
+            ),
+            Self::Size(..) => {
+                let p = self.scale(width, height);
+                Self::Percentage(p).size(width, height)
+            }
+        }
+    }
+
+    /// Calculate scaling factor from the given image dimension to self
+    /// ```
+    /// use labelme_rs::ResizeParam;
+    /// let param = ResizeParam::try_from("75%").unwrap();
+    /// assert_eq!(param.scale(10, 10), 0.75);
+    /// let param = ResizeParam::try_from("300x400").unwrap();
+    /// assert_eq!(param.scale(150, 200), 2.0);
+    /// assert_eq!(param.scale(512, 512), 0.5859375);
+    /// ```
     pub fn scale(&self, width: u32, height: u32) -> f64 {
         match self {
-            ResizeParam::Percentage(p) => *p,
-            ResizeParam::Size(nwidth, nheight) => {
+            Self::Percentage(p) => *p,
+            Self::Size(nwidth, nheight) => {
                 let wratio = *nwidth as f64 / width as f64;
                 let hratio = *nheight as f64 / height as f64;
                 f64::min(wratio, hratio)

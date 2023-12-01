@@ -1,5 +1,5 @@
 use anyhow::Result;
-use labelme_rs::indexmap::IndexSet;
+use labelme_rs::FlagSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -13,8 +13,8 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     }
     assert!(!rules.is_empty(), "No rule is found.");
     let asts = lmrs::parse_rules(&rules)?;
-    let flag_set: IndexSet<String> = args.flag.into_iter().collect();
-    let ignore_set: IndexSet<String> = args.ignore.into_iter().collect();
+    let flag_set: FlagSet = args.flag.into_iter().collect();
+    let ignore_set: FlagSet = args.ignore.into_iter().collect();
     let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
         Box::new(BufReader::new(std::io::stdin()))
     } else {
