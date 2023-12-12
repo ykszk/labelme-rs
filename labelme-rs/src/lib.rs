@@ -591,4 +591,16 @@ mod tests {
         assert_eq!(scale, 2.0);
         Ok(())
     }
+
+    #[test]
+    fn test_color_cycler() {
+        let mut cycler = ColorCycler::new();
+        assert_eq!(cycler.cycle(), COLORS[0]);
+        assert_eq!(cycler.cycle(), COLORS[1]);
+        assert_eq!(cycler.cycle(), COLORS[2]);
+        assert_eq!(cycler.cycle(), COLORS[3]);
+        assert_eq!(cycler.cycle(), COLORS[4]);
+        assert_eq!(cycler.cycle(), COLORS[5]);
+        assert_eq!(cycler.cycle(), COLORS[0]);
+    }
 }
