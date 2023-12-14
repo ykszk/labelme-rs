@@ -1,12 +1,11 @@
 use anyhow::{bail, ensure, Context, Result};
-use labelme_rs::image::GenericImageView;
 use labelme_rs::indexmap::{IndexMap, IndexSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use labelme_rs::{load_label_colors, LabelColorsHex};
+use labelme_rs::{load_label_colors, LabelColorsHex, LabelMeDataWImage};
 use lmrs::cli::HtmlCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
@@ -128,7 +127,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                 (all_tags, all_labels, all_shapes)
             }));
         }
-        let mut cycler = labelme_rs::ColorCycler::new();
+        let mut cycler = labelme_rs::ColorCycler::default();
         for handle in handles {
             let result = handle.join().unwrap();
             for flag in result.0 {
@@ -172,8 +171,6 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                         if let Some(param) = resize_param.as_ref() {
                             data_w_img.resize(param);
                         }
-                            None => {}
-                        };
 
                         let flags: Vec<_> = data_w_img
                             .data

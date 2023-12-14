@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use std::{io::Read, path::PathBuf};
+use std::io::Read;
 
 use labelme_rs::{load_label_colors, LabelColorsHex};
 use lmrs::cli::SvgCmdArgs as CmdArgs;
@@ -25,9 +25,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             .with_context(|| format!("Failed to get parent directory of:{:?}", args.input))?;
         json_data = json_data.to_absolute_path(json_dir);
     };
-    std::env::set_current_dir(json_dir)?;
     let mut data_w_image: labelme_rs::LabelMeDataWImage = json_data.try_into()?;
-    std::env::set_current_dir(original_dir)?;
     if let Some(resize) = args.resize {
         let resize_param = labelme_rs::ResizeParam::try_from(resize.as_str())?;
         data_w_image.resize(&resize_param);

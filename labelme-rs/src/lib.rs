@@ -61,6 +61,7 @@ impl LabelMeDataWImage {
     pub fn new(data: LabelMeData, image: image::DynamicImage) -> Self {
         Self { data, image }
     }
+
     pub fn resize(&mut self, param: &ResizeParam) {
         let scale = param.scale(self.image.width(), self.image.height());
         if scale > 0.0 && scale != 1.0 {
@@ -320,7 +321,7 @@ impl LabelMeData {
             .set("height", image_height)
             .set("xlink:href", b64);
         document = document.add(bg);
-        let mut color_cycler = ColorCycler::new();
+        let mut color_cycler = ColorCycler::default();
         let shape_map = self.to_shape_map();
         if let Some(point_data) = shape_map.get("point") {
             for (label, points) in point_data {
@@ -362,6 +363,52 @@ impl LabelMeData {
                         .set("width", (rectangle[1].0 - rectangle[0].0).abs())
                         .set("height", (rectangle[1].1 - rectangle[0].1).abs());
                     group = group.add(rect);
+                }
+                document = document.add(group);
+            }
+        }
+        let mut line_colors: IndexSet<&str> = IndexSet::default();
+        if let Some(line_data) = shape_map.get("line") {
+            for (label, lines) in line_data {
+                let color = label_colors
+                    .get(*label)
+                    .map_or_else(|| color_cycler.cycle(), |s| s.as_str());
+                line_colors.insert(color);
+                let mut group = element::Group::new()
+                    .set("class", format!("line {}", label))
+                    .set("fill", "none")
+                    .set("stroke", color)
+                    .set("stroke-width", line_width);
+                for line in lines {
+                    let line = element::Line::new()
+                        .set("x1", line[0].0)
+                        .set("y1", line[0].1)
+                        .set("x2", line[1].0)
+                        .set("y2", line[1].1);
+                    group = group.add(line);
+                }
+                document = document.add(group);
+            }
+        }
+        if let Some(polyline_data) = shape_map.get("linestrip") {
+            for (label, polylines) in polyline_data {
+                let color = label_colors
+                    .get(*label)
+                    .map_or_else(|| color_cycler.cycle(), |s| s.as_str());
+                line_colors.insert(color);
+                let mut group = element::Group::new()
+                    .set("class", format!("linestrip {}", label))
+                    .set("fill", "none")
+                    .set("stroke", color)
+                    .set("stroke-width", line_width);
+                for polyline in polylines {
+                    let points = polyline
+                        .iter()
+                        .map(|p| format!("{} {}", p.0, p.1))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    let polyline = element::Polyline::new().set("points", points);
+                    group = group.add(polyline);
                 }
                 document = document.add(group);
             }
@@ -536,10 +583,35 @@ pub struct LabelColorsInConfig {
 pub type LabelColors = IndexMap<String, Color>;
 pub type LabelColorsHex = IndexMap<String, String>;
 
-pub static COLORS: [&str; 6] = ["red", "green", "blue", "cyan", "magenta", "yellow"];
-#[derive(Debug, Default, Clone, Copy)]
+pub static TAB10: [&str; 10] = [
+    "#1f77b4", "#ff7f0f", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+    "#bcbd22", "#16becf",
+];
+pub static NEW_TAB10: [&str; 10] = [
+    "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14e", "#edc949", "#af7aa1", "#ff9da7",
+    "#9c755f", "#bab0ac",
+];
+pub static RGBCMY: [&str; 6] = ["red", "green", "blue", "cyan", "magenta", "yellow"];
+
+#[derive(Debug)]
 pub struct ColorCycler {
     i: usize,
+    palette: Vec<&'static str>,
+}
+
+impl Default for ColorCycler {
+    fn default() -> Self {
+        ColorCycler {
+            i: 0,
+            palette: Vec::from(TAB10),
+        }
+    }
+}
+
+impl From<Vec<&'static str>> for ColorCycler {
+    fn from(palette: Vec<&'static str>) -> Self {
+        ColorCycler { i: 0, palette }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -565,21 +637,19 @@ pub fn load_label_colors(filename: &Path) -> Result<LabelColorsHex, LabelColorEr
 impl ColorCycler {
     /// Get next color
     pub fn cycle(&mut self) -> &'static str {
-        let c = COLORS[self.i];
-        self.i = (self.i + 1) % COLORS.len();
+        let c = self.palette[self.i];
+        self.i = (self.i + 1) % self.palette.len();
         c
-    }
-    pub fn new() -> Self {
-        ColorCycler { i: 0 }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::{Context, Result};
 
     #[test]
-    fn test_lmdata_line() -> anyhow::Result<()> {
+    fn test_lmdata_line() -> Result<()> {
         let lmd = LabelMeData::default();
         let lmd_string = serde_json::to_string(&lmd)?;
         let mut lmdl: serde_json::Map<String, serde_json::Value> =
@@ -588,6 +658,20 @@ mod tests {
         let lmdl_string = serde_json::to_string(&lmdl)?;
         let restored: LabelMeDataLine = lmdl_string.as_str().try_into()?;
         assert_eq!(restored.filename, "1.json");
+        Ok(())
+    }
+
+    #[test]
+    fn test_image_load() -> Result<()> {
+        let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/data");
+        let json_file = data_dir.join("Mandrill.json");
+        let jsons = std::fs::read_to_string(&json_file)
+            .with_context(|| format!("Read json file:{:?}", json_file))?;
+        let data = LabelMeData::try_from(jsons)?;
+        let data = data.to_absolute_path(data_dir.canonicalize()?.as_path());
+        let w_image: LabelMeDataWImage = data.try_into()?;
+        let expected = data_dir.join("Mandrill.jpg").canonicalize()?;
+        assert_eq!(w_image.data.imagePath, expected.to_string_lossy());
         Ok(())
     }
 
@@ -607,13 +691,9 @@ mod tests {
 
     #[test]
     fn test_color_cycler() {
-        let mut cycler = ColorCycler::new();
-        assert_eq!(cycler.cycle(), COLORS[0]);
-        assert_eq!(cycler.cycle(), COLORS[1]);
-        assert_eq!(cycler.cycle(), COLORS[2]);
-        assert_eq!(cycler.cycle(), COLORS[3]);
-        assert_eq!(cycler.cycle(), COLORS[4]);
-        assert_eq!(cycler.cycle(), COLORS[5]);
-        assert_eq!(cycler.cycle(), COLORS[0]);
+        let mut cycler = ColorCycler::default();
+        for i in 0..=11 {
+            assert_eq!(cycler.cycle(), TAB10[i % 10]);
+        }
     }
 }
