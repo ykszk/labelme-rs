@@ -6,7 +6,7 @@ use lmrs::cli::SvgCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    let json_data = labelme_rs::LabelMeData::try_from(if args.input.as_os_str() == "-" {
+    let mut json_data = labelme_rs::LabelMeData::try_from(if args.input.as_os_str() == "-" {
         let mut buf = String::new();
         std::io::stdin().read_to_string(&mut buf)?;
         buf
@@ -18,17 +18,12 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         None => LabelColorsHex::new(),
     };
 
-    let original_dir = std::env::current_dir()?;
-    let json_dir: PathBuf = if args.input.is_dir() {
-        args.input.clone()
-    } else if args.input.as_os_str() == "-" {
-        PathBuf::from(".")
-    } else {
-        args.input
-            .canonicalize()?
+    if args.input.as_os_str() != "-" {
+        let canonical_input = args.input.canonicalize()?;
+        let json_dir = canonical_input
             .parent()
-            .context("Failed to get parent")?
-            .into()
+            .with_context(|| format!("Failed to get parent directory of:{:?}", args.input))?;
+        json_data = json_data.to_absolute_path(json_dir);
     };
     std::env::set_current_dir(json_dir)?;
     let mut data_w_image: labelme_rs::LabelMeDataWImage = json_data.try_into()?;

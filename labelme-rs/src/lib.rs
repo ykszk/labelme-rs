@@ -260,6 +260,19 @@ impl LabelMeData {
         self.imageHeight = (self.imageHeight as f64 * scale) as _;
     }
 
+    /// Update `imagePath` to absolute path if it is relative
+    pub fn to_absolute_path(mut self, canonical_json_dir: &Path) -> Self {
+        let image_path = Path::new(&self.imagePath);
+        if image_path.is_relative() {
+            self.imagePath = canonical_json_dir
+                .join(image_path)
+                .to_str()
+                .unwrap()
+                .to_string();
+        }
+        self
+    }
+
     /// Count the number of labels
     ///
     /// ```

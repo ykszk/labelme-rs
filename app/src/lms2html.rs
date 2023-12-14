@@ -69,14 +69,19 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
 
     ensure!(!entries.is_empty(), "No json file found.");
     let json_dir: PathBuf = if args.input.is_dir() {
-        args.input.clone()
+        args.input.canonicalize()?
     } else if args.input.as_os_str() == "-" {
-        PathBuf::from(".")
+        PathBuf::from(".").canonicalize()?
     } else {
         args.input
             .parent()
             .context("Input has no parent directory")?
-            .into()
+            .canonicalize()?
+    };
+    let json_dir = if let Some(image_dir) = &args.image_dir {
+        image_dir.canonicalize()?
+    } else {
+        json_dir
     };
     let bar = indicatif::ProgressBar::new(entries.len() as _);
     bar.set_style(
@@ -147,11 +152,6 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         None => None,
     };
 
-    let original_dir = std::env::current_dir().expect("Failed to acquire cwd");
-    if args.image_dir.is_none() {
-        std::env::set_current_dir(&json_dir)
-            .unwrap_or_else(|_| panic!("Failed to change directory to {:?}", json_dir));
-    }
     info!("Generate svgs");
     std::thread::scope(|scope| {
         let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
@@ -162,54 +162,39 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                     .iter_mut()
                     .map(|entry| {
                         let input = &mut entry.0;
-                        let json_data = &mut entry.1;
+                        let mut json_data = entry.1.clone();
 
-                        let image_path = json_data.imagePath.replace('\\', "/");
-                        let img_filename = if let Some(image_dir) = &args.image_dir {
-                            let filename = Path::new(&image_path).file_name().context("")?;
-                            image_dir.join(filename)
-                        } else {
-                            let p = PathBuf::from(&image_path);
-                            p.canonicalize().unwrap_or_else(|_| {
-                                panic!("Failed to canonicalize {}", json_data.imagePath)
-                            })
-                        };
-                        let mut img = labelme_rs::load_image(&img_filename).unwrap_or_else(|e| {
-                            panic!("Failed to load image {:?}: {:?}", img_filename, e)
-                        });
-                        match &resize_param {
-                            Some(param) => {
-                                let orig_size = img.dimensions();
-                                img = param.resize(&img);
-                                debug!(
-                                    "Image is resized to {} x {}",
-                                    img.dimensions().0,
-                                    img.dimensions().1
-                                );
-                                let scale = img.dimensions().0 as f64 / orig_size.0 as f64;
-                                if (scale - 1.0).abs() > f64::EPSILON {
-                                    debug!("Points are scaled by {}", scale);
-                                    json_data.scale(scale);
-                                }
-                            }
+                        json_data.imagePath = json_data.imagePath.replace('\\', "/");
+                        let json_data = json_data.to_absolute_path(&json_dir);
+                        let mut data_w_img: LabelMeDataWImage =
+                            LabelMeDataWImage::try_from(json_data)?;
+
+                        if let Some(param) = resize_param.as_ref() {
+                            data_w_img.resize(param);
+                        }
                             None => {}
                         };
 
-                        let flags: Vec<_> = json_data
+                        let flags: Vec<_> = data_w_img
+                            .data
                             .flags
                             .iter()
                             .filter(|(_k, v)| **v)
                             .map(|(k, _v)| k.clone())
                             .collect();
                         let flags = flags.join(" ");
-                        let label_counts = json_data.count_labels();
+                        let label_counts = data_w_img.data.count_labels();
                         let title = label_counts
                             .iter()
                             .map(|(k, v)| format!("{k}:{v}"))
                             .collect::<Vec<_>>()
                             .join("\n");
-                        let document =
-                            json_data.to_svg(&label_colors, args.radius, args.line_width, &img);
+                        let document = data_w_img.data.to_svg(
+                            &label_colors,
+                            args.radius,
+                            args.line_width,
+                            &data_w_img.image,
+                        );
                         let mut context = tera::Context::new();
                         context.insert("tags", &flags);
                         context.insert("flags", &flags);
@@ -245,10 +230,6 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         shared_bar.lock().unwrap().finish();
     };
     info!("Generate html");
-    if original_dir != std::env::current_dir().expect("Failed to acquire cwd") {
-        std::env::set_current_dir(original_dir)
-            .unwrap_or_else(|_| panic!("Failed to change directory back to {:?}", json_dir));
-    }
     let shape_toggles: std::result::Result<Vec<_>, _> = all_shapes
         .iter()
         .map(|shape| {
