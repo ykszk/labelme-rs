@@ -22,8 +22,8 @@ where
 impl Validator {
     #[new]
     fn new(rules: Vec<String>, flag_set: Vec<String>, ignore_set: Vec<String>) -> PyResult<Self> {
-        let flags = lmrs::FlagSet::from_iter(flag_set.into_iter());
-        let ignores = lmrs::FlagSet::from_iter(ignore_set.into_iter());
+        let flags = lmrs::FlagSet::from_iter(flag_set);
+        let ignores = lmrs::FlagSet::from_iter(ignore_set);
         match lmrs::parse_rules(&rules) {
             Ok(asts) => Ok(Self {
                 rules,
