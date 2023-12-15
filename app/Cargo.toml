@@ -15,10 +15,10 @@ name = "lmrs"
 path = "src/lib.rs"
 
 [dependencies]
-labelme-rs = { path = "../labelme-rs"}
+labelme-rs = { path = "../labelme-rs" }
 clap = { version = "4", features = ["derive"] }
-anyhow = "1.0"
-thiserror = "1.0"
+anyhow.workspace = true
+thiserror.workspace = true
 tera = { version = "1", default-features = false }
 log = "0"
 env_logger = "0"

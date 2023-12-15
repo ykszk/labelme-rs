@@ -6,15 +6,20 @@ repository.workspace = true
 description.workspace = true
 
 [dependencies]
-anyhow = "1.0"
-thiserror = "1.0"
+thiserror.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0"
-image = { version="0.24", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.24", default-features = false, features = [
+    "png",
+    "jpeg",
+] }
 zune-jpeg = "0.3"
 base64 = "0.21"
 svg = "0"
-indexmap = { version="2", features = ["serde"] }
+indexmap = { version = "2", features = ["serde"] }
 lazy_static = "1.4"
 regex = "1"
+
+[dev-dependencies]
+anyhow.workspace = true

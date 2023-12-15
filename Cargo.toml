@@ -1,11 +1,6 @@
 [workspace]
-members = [
-    "labelme-rs",
-    "app",
-    "lmrspy",
-    "xtask"
-]
-default-members=["app", "labelme-rs"]
+members = ["labelme-rs", "app", "lmrspy", "xtask"]
+default-members = ["app", "labelme-rs"]
 resolver = "2"
 
 [workspace.package]
@@ -18,6 +13,10 @@ My utility tools for labelme and ndjson.
 
 Check the repository (https://github.com/ykszk/labelme-rs) for details.
 """
+
+[workspace.dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
 
 [profile.release]
 strip = true
