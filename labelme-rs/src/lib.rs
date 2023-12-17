@@ -7,6 +7,7 @@ use regex::Regex;
 pub use serde;
 use serde::{Deserialize, Serialize};
 pub use serde_json;
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::Cursor;
 use std::path::Path;
@@ -580,8 +581,8 @@ pub struct LabelColorsInConfig {
     label_colors: LabelColors,
 }
 
-pub type LabelColors = IndexMap<String, Color>;
-pub type LabelColorsHex = IndexMap<String, String>;
+pub type LabelColors = HashMap<String, Color>;
+pub type LabelColorsHex = HashMap<String, String>;
 
 pub static TAB10: [&str; 10] = [
     "#1f77b4", "#ff7f0f", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
