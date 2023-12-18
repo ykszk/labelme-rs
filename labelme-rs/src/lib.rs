@@ -13,6 +13,7 @@ use std::io::Cursor;
 use std::path::Path;
 pub use svg;
 use svg::node::element;
+use thiserror::Error;
 use zune_jpeg::zune_core::colorspace::ColorSpace;
 use zune_jpeg::JpegDecoder;
 #[macro_use]
@@ -43,10 +44,36 @@ pub struct LabelMeData {
     pub imageWidth: usize,
 }
 
+#[derive(Error, Debug)]
+pub enum LabelMeDataError {
+    #[error("IO Error")]
+    IoError(#[from] std::io::Error),
+    #[error("Json Error")]
+    SerdeError(#[from] serde_json::Error),
+    #[error("Image Error")]
+    ImageError(#[from] image::ImageError),
+}
+
 #[derive(Debug, Clone)]
 pub struct LabelMeDataWImage {
     pub data: LabelMeData,
     pub image: image::DynamicImage,
+}
+
+impl TryFrom<&Path> for LabelMeDataWImage {
+    type Error = LabelMeDataError;
+
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        let s = std::fs::read_to_string(path)?;
+        let mut data: LabelMeData = s.try_into()?;
+        data.imagePath = data.imagePath.replace('\\', "/");
+        if let Some(parent) = path.parent() {
+            let path = parent.canonicalize()?;
+            data = data.to_absolute_path(path.as_path());
+        }
+        let data = LabelMeDataWImage::try_from(data)?;
+        Ok(data)
+    }
 }
 
 impl TryFrom<LabelMeData> for LabelMeDataWImage {
@@ -73,7 +100,7 @@ impl LabelMeDataWImage {
 }
 
 /// LabeleMeData with additional `filename` field for ndjsons
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct LabelMeDataLine {
     #[serde(flatten)]
     pub data: LabelMeData,
@@ -91,7 +118,7 @@ impl TryFrom<&str> for LabelMeDataLine {
 /// Resizing parameter represented by percentage or size.
 /// Resizing does not change image's aspect ratio.
 /// Use imagemagick's `-resize`-like format to construct.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ResizeParam {
     Percentage(f64),
     Size(u32, u32),
@@ -102,10 +129,10 @@ lazy_static! {
     static ref RE_SIZE: Regex = Regex::new(r"^(\d+)x(\d+)$").unwrap();
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Debug)]
 pub enum ResizeParamError {
-    #[error("int parse error: {0}")]
-    ParseIntError(std::num::ParseIntError),
+    #[error("int parse error")]
+    ParseIntError(#[from] std::num::ParseIntError),
     #[error("Invalid format: {0}")]
     FormatError(String),
 }
@@ -122,27 +149,11 @@ impl TryFrom<&str> for ResizeParam {
     /// ```
     fn try_from(param: &str) -> Result<Self, Self::Error> {
         if let Some(cap) = RE_PERCENT.captures(param) {
-            let p: f64 = cap
-                .get(1)
-                .unwrap()
-                .as_str()
-                .parse::<u32>()
-                .map_err(ResizeParamError::ParseIntError)? as f64
-                / 100.0;
+            let p: f64 = cap.get(1).unwrap().as_str().parse::<u32>()? as f64 / 100.0;
             Ok(ResizeParam::Percentage(p))
         } else if let Some(cap) = RE_SIZE.captures(param) {
-            let w: u32 = cap
-                .get(1)
-                .unwrap()
-                .as_str()
-                .parse()
-                .map_err(ResizeParamError::ParseIntError)?;
-            let h: u32 = cap
-                .get(2)
-                .unwrap()
-                .as_str()
-                .parse()
-                .map_err(ResizeParamError::ParseIntError)?;
+            let w: u32 = cap.get(1).unwrap().as_str().parse()?;
+            let h: u32 = cap.get(2).unwrap().as_str().parse()?;
             Ok(ResizeParam::Size(w, h))
         } else {
             Err(ResizeParamError::FormatError(param.into()))
@@ -250,7 +261,7 @@ impl LabelMeData {
         map
     }
 
-    /// Scale points
+    /// Scale points and image size (`imageWidth` and `imageHeight`)
     pub fn scale(&mut self, scale: f64) {
         for shape in &mut self.shapes {
             for p in &mut shape.points {
@@ -517,10 +528,8 @@ impl TryFrom<String> for LabelMeData {
 }
 
 impl TryFrom<&Path> for LabelMeData {
-    type Error = Box<dyn Error>;
+    type Error = LabelMeDataError;
     fn try_from(filename: &Path) -> Result<Self, Self::Error> {
-        // It's faster to use `from_str` than to use `from_reader`
-        // https://github.com/serde-rs/json/issues/160
         let s = std::fs::read_to_string(filename)?;
         Ok(s.as_str().try_into()?)
     }
@@ -617,19 +626,17 @@ impl From<Vec<&'static str>> for ColorCycler {
 
 #[derive(thiserror::Error, Debug)]
 pub enum LabelColorError {
-    #[error("IO error: {0}")]
-    IoError(std::io::Error),
-    #[error("Invalid yaml: {0}")]
-    YamlError(serde_yaml::Error),
-    #[error("Invalid value: {0}")]
-    ValueError(serde_yaml::Error),
+    #[error("IO error")]
+    IoError(#[from] std::io::Error),
+    #[error("Yaml error")]
+    YamlError(#[from] serde_yaml::Error),
 }
 
+/// Load colormap written in yaml
+/// Example: `label_colors:{"L1": [255, 0, 0], "L2": [0, 255, 0]}`
 pub fn load_label_colors(filename: &Path) -> Result<LabelColorsHex, LabelColorError> {
-    let config: LabelColorsInConfig = serde_yaml::from_reader(std::io::BufReader::new(
-        std::fs::File::open(filename).map_err(LabelColorError::IoError)?,
-    ))
-    .map_err(LabelColorError::ValueError)?;
+    let config: LabelColorsInConfig =
+        serde_yaml::from_reader(std::io::BufReader::new(std::fs::File::open(filename)?))?;
     let hex =
         LabelColorsHex::from_iter(config.label_colors.into_iter().map(|(k, v)| (k, v.into())));
     Ok(hex)
