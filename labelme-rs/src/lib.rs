@@ -261,7 +261,7 @@ impl LabelMeData {
         map
     }
 
-    /// Scale points and image size (`imageWidth` and `imageHeight`)
+    /// Scale points, imageWidth and imageHeight
     pub fn scale(&mut self, scale: f64) {
         for shape in &mut self.shapes {
             for p in &mut shape.points {
@@ -271,6 +271,17 @@ impl LabelMeData {
         }
         self.imageWidth = (self.imageWidth as f64 * scale) as _;
         self.imageHeight = (self.imageHeight as f64 * scale) as _;
+    }
+
+    /// Shift points.
+    /// Does not change imageWidth and imageHeight
+    pub fn shift(&mut self, tx: f64, ty: f64) {
+        for shape in &mut self.shapes {
+            for p in &mut shape.points {
+                p.0 = (p.0 as f64 + tx) as f32;
+                p.1 = (p.1 as f64 + ty) as f32;
+            }
+        }
     }
 
     /// Update `imagePath` to absolute path if it is relative
