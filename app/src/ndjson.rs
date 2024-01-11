@@ -1,12 +1,12 @@
 use anyhow::{bail, ensure, Context, Result};
 use labelme_rs::serde_json;
-use lmrs::cli::JsonlCmdArgs as CmdArgs;
+use lmrs::cli::NdjsonCmdArgs as CmdArgs;
 use std::io::{BufRead, BufReader};
 
 #[cfg(not(target_os = "windows"))]
 extern crate libc;
 
-fn print_jsonl(input: std::path::PathBuf, key: &str) -> Result<()> {
+fn print_ndjson(input: std::path::PathBuf, key: &str) -> Result<()> {
     let json_str = std::fs::read_to_string(&input)?;
     let mut json_data: serde_json::Map<String, serde_json::Value> =
         serde_json::from_str(&json_str)?;
@@ -45,7 +45,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             .expect("Failed to read glob pattern");
             for entry in entries {
                 let input = entry?;
-                print_jsonl(input, &args.filename)?;
+                print_ndjson(input, &args.filename)?;
             }
         } else if input
             .extension()
@@ -57,7 +57,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                 println!("{}", line?);
             }
         } else if input.extension().map(|ext| ext == "json").unwrap_or(false) {
-            print_jsonl(input, &args.filename)?;
+            print_ndjson(input, &args.filename)?;
         } else {
             bail!("{:?} is not a directory, json, or ndjson/jsonl", input);
         }

@@ -11,11 +11,11 @@ mod drop_dups;
 mod filter;
 mod init;
 mod join;
-mod jsonl;
 mod lm2svg;
 mod lms2html;
+mod ndjson;
 mod resize;
-mod split_jsonl;
+mod split_ndjson;
 mod swap_prefix;
 mod validate;
 
@@ -29,8 +29,8 @@ fn main() -> Result<()> {
         Command::Svg(args) => lm2svg::cmd(args),
         Command::Validate(args) => validate::cmd(args),
         Command::Swap(args) => swap_prefix::cmd(args),
-        Command::Jsonl(args) => jsonl::cmd(args),
-        Command::Split(args) => split_jsonl::cmd(args),
+        Command::Ndjson(args) => ndjson::cmd(args),
+        Command::Split(args) => split_ndjson::cmd(args),
         Command::Filter(args) => filter::cmd(args),
         Command::Drop(args) => drop_dups::cmd(args),
         Command::Join(args) => join::cmd(args),

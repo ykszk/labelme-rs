@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 #[test]
-fn test_jsonl_split() -> Result<()> {
+fn test_split_ndjson() -> Result<()> {
     let bin = env!("CARGO_BIN_EXE_lmrs");
     let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
     let json_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
-    let output = Command::new(bin).arg("jsonl").arg(&json_dir).output()?;
+    let output = Command::new(bin).arg("ndjson").arg(&json_dir).output()?;
     assert_eq!(output.stderr.len(), 0);
 
     let mut proc = Command::new(bin)
@@ -52,8 +52,8 @@ fn test_filter() -> Result<()> {
     let bin = env!("CARGO_BIN_EXE_lmrs");
     let json_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
     let rule_file = json_dir.join("rules.txt");
-    let jsonl_output = Command::new(bin).arg("jsonl").arg(&json_dir).output()?;
-    assert_eq!(jsonl_output.stderr.len(), 0);
+    let ndjson_output = Command::new(bin).arg("ndjson").arg(&json_dir).output()?;
+    assert_eq!(ndjson_output.stderr.len(), 0);
 
     // test filtering
     let mut proc = Command::new(bin)
@@ -67,7 +67,7 @@ fn test_filter() -> Result<()> {
         .spawn()?;
 
     let filter_stdin = proc.stdin.as_mut().unwrap();
-    filter_stdin.write_all(&jsonl_output.stdout)?;
+    filter_stdin.write_all(&ndjson_output.stdout)?;
 
     let filter_output = proc.wait_with_output()?;
     assert_eq!(filter_output.stderr.len(), 0, "Non-empty stderror");
@@ -88,7 +88,7 @@ fn test_filter() -> Result<()> {
         .spawn()?;
 
     let filter_stdin = proc_filter.stdin.as_mut().unwrap();
-    filter_stdin.write_all(&jsonl_output.stdout)?;
+    filter_stdin.write_all(&ndjson_output.stdout)?;
 
     let filter_output = proc_filter.wait_with_output()?;
     assert_eq!(filter_output.stderr.len(), 0, "Non-empty stderror");

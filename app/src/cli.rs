@@ -19,12 +19,12 @@ pub enum Command {
     Validate(ValidateCmdArgs),
     /// Swap prefix of imagePath
     Swap(SwapCmdArgs),
-    /// Concat json files with `filename` key added into jsonl file
-    #[clap(aliases = &["ndjson"])]
-    Jsonl(JsonlCmdArgs),
-    /// Split jsonl into json files
+    /// Concat json files with `filename` key added into ndjson file
+    #[clap(aliases = &["jsonl"])]
+    Ndjson(NdjsonCmdArgs),
+    /// Split ndjson into json files
     Split(SplitCmdArgs),
-    /// Filter jsonl based on validation result
+    /// Filter ndjson based on validation result
     Filter(FilterCmdArgs),
     /// Drop duplicates except for the first occurrence
     Drop(DropCmdArgs),
@@ -47,7 +47,7 @@ pub struct DropCmdArgs {
 
 #[derive(Args, Debug)]
 pub struct FilterCmdArgs {
-    /// Input jsonl filename. Specify '-' to use stdin
+    /// Input ndjson filename. Specify '-' to use stdin
     pub input: PathBuf,
     /// Text file(s) containing rules
     #[clap(short, long)]
@@ -91,7 +91,7 @@ pub struct ValidateCmdArgs {
 
 #[derive(Debug, Args)]
 pub struct HtmlCmdArgs {
-    /// Input labelme directory or jsonl with `filename` data (e.g. output of `lmrs jsonl`).
+    /// Input labelme directory or ndjson with `filename` data (e.g. output of `lmrs ndjson`).
     /// Specify "-" to use stdin as input
     pub input: PathBuf,
     /// Output html filename
@@ -147,7 +147,7 @@ pub struct SvgCmdArgs {
 
 #[derive(Args, Debug)]
 pub struct SwapCmdArgs {
-    /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for jsonl input with stdin (for piping).
+    /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for ndjson input with stdin (for piping).
     pub input: PathBuf,
     /// New imagePath prefix
     pub prefix: String,
@@ -170,7 +170,7 @@ pub struct ResizeCmdArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct JsonlCmdArgs {
+pub struct NdjsonCmdArgs {
     /// Directories, json files, or ndjson/jsonl files
     #[clap(required=true, num_args=1..)]
     pub input: Vec<PathBuf>,
@@ -193,7 +193,7 @@ pub struct InitCmdArgs {
 
 #[derive(Debug, Args)]
 pub struct SplitCmdArgs {
-    /// Input jsonl filename. Stdin is used if omitted
+    /// Input ndjson filename. Stdin is used if omitted
     pub input: Option<PathBuf>,
     /// Output directory. Working directory is used by default
     #[clap(short, long)]

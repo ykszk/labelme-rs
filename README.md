@@ -28,34 +28,34 @@ lmrs <COMMAND> --help
 ```
 to see help in full detail.
 
-## jsonl
+## ndjson
 Create jsonl/ndjson file from the given json-containing directory.
 `filename` key is added to each json to make this process invertible.
 Use `split` command to invert.
 
 ```console
-lmrs jsonl json_directory/ > jsons.jsonl
+lmrs ndjson json_directory/ > jsons.ndjson
 ```
 
 ## split
-Invert `lmrs jsonl` process.
-i.e. split jsonl file into separate json files using `filename` values as filenames.
+Undo `lmrs ndjson` process.
+i.e. split ndjson file into separate json files using `filename` values as filenames.
 
 Simple use:
 ```console
-lmrs data.jsonl -o outdir
+lmrs data.ndjson -o outdir
 ```
 
 Use with `jq` filtering:
 ```console
-lmrs jsonl json_indir | jq -c 'select(.is_good)' | lmrs split -o json_outdir
+lmrs ndjson json_indir | jq -c 'select(.is_good)' | lmrs split -o json_outdir
 ```
 
 ## filter
 Filter valid/invalid data. See `validate` command for validation details.
 
 ```console
-lmrs jsonl app/tests | lmrs filter - -r app/tests/rules.txt
+lmrs ndjson app/tests | lmrs filter - -r app/tests/rules.txt
 ```
 
 ## swap
@@ -110,7 +110,7 @@ lmrs join left.ndjson right.ndjson
 Scale point coordinates according to the resize parameter
 
 ```console
-lmrs jsonl . | lmrs resize - 50%
+lmrs ndjson . | lmrs resize - 50%
 ```
 
 ## init
