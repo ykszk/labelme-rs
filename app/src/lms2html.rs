@@ -60,7 +60,10 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             .map(|line| {
                 let line = line?;
                 let json_data = labelme_rs::LabelMeDataLine::try_from(line.as_str())?;
-                Ok((PathBuf::from(json_data.filename), Box::new(json_data.data)))
+                Ok((
+                    PathBuf::from(json_data.filename),
+                    Box::new(json_data.content),
+                ))
             })
             .collect();
         entries?

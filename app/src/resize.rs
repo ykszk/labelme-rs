@@ -16,17 +16,17 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         let line = line?;
         let mut lm_line: LabelMeDataLine = line.as_str().try_into()?;
         let scale = resize_param.scale(
-            lm_line.data.imageWidth as u32,
-            lm_line.data.imageHeight as u32,
+            lm_line.content.imageWidth as u32,
+            lm_line.content.imageHeight as u32,
         );
-        lm_line.data.scale(scale);
+        lm_line.content.scale(scale);
         let writer = BufWriter::new(stdout().lock());
         serde_json::to_writer(writer, &lm_line)?;
         println!();
         if let Some(ref image_dir) = args.image {
-            let image_path = PathBuf::from(&lm_line.data.imagePath);
+            let image_path = PathBuf::from(&lm_line.content.imagePath);
             let mut data_w_image: labelme_rs::LabelMeDataWImage = lm_line
-                .data
+                .content
                 .try_into()
                 .with_context(|| format!("Opening {:?}", image_path))?;
             data_w_image.resize(&resize_param);

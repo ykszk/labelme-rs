@@ -1,4 +1,4 @@
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -176,9 +176,19 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             };
             for line in reader.lines() {
                 let line = line?;
-                let json_data: JsonMap = serde_json::from_str(&line)?;
-                let json_data = swap_prefix(&args.key, &args.prefix, json_data)?;
-                writeln!(writer, "{}", serde_json::to_string(&json_data)?)?;
+                let mut json_data_line: JsonMap = serde_json::from_str(&line)?;
+                let content = json_data_line
+                    .remove("content")
+                    .context("Extract content")?;
+                match content {
+                    serde_json::Value::Object(json_data) => {
+                        let json_data = swap_prefix(&args.key, &args.prefix, json_data)?;
+                        writeln!(writer, "{}", serde_json::to_string(&json_data)?)?;
+                    }
+                    value => {
+                        bail!("Invalid value in `content`: {value:?}")
+                    }
+                }
             }
         } else {
             panic!("Unknown input type: {:?}", args.input);

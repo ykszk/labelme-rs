@@ -13,10 +13,9 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     };
     let outdir = args.output.unwrap_or_default();
     for line in reader.lines() {
-        let mut json_data: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(&line?)?;
+        let json_data: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&line?)?;
         let v_filename = json_data
-            .remove(&args.filename)
+            .get(&args.filename)
             .with_context(|| format!("Key {} not found", &args.filename))?;
         let serde_json::Value::String(filename) = v_filename else {
             panic!("expected String")
@@ -27,7 +26,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             "Output file {output_filename:?} already exists. Add \"--overwrite\" option to force overwriting.");
         }
         let writer = std::io::BufWriter::new(std::fs::File::create(&output_filename)?);
-        serde_json::to_writer_pretty(writer, &json_data)?;
+        serde_json::to_writer_pretty(writer, &json_data.get(&args.content))?;
     }
     Ok(())
 }

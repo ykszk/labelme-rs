@@ -26,7 +26,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                     .unwrap(),
                 ..Default::default()
             };
-            json_data.data.imagePath = input
+            json_data.content.imagePath = input
                 .file_name()
                 .unwrap()
                 .to_os_string()

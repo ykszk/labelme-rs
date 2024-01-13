@@ -199,8 +199,11 @@ pub struct SplitCmdArgs {
     #[clap(short, long)]
     pub output: Option<PathBuf>,
     /// Key for filename
-    #[clap(long, default_value = "filename", id = "key")]
+    #[clap(long, default_value = "filename")]
     pub filename: String,
+    /// Key for content
+    #[clap(long, default_value = "content")]
+    pub content: String,
     /// Overwrite json files if exist
     #[clap(long, action)]
     pub overwrite: bool,

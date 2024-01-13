@@ -1,6 +1,7 @@
 pub use chumsky::prelude::*;
 use labelme_rs::indexmap::IndexMap;
 use labelme_rs::serde_json;
+use labelme_rs::LabelMeDataLine;
 pub use labelme_rs::{FlagSet, LabelMeData, Point};
 use std::error;
 use std::fmt;
@@ -210,13 +211,25 @@ pub fn check_json_file(
 pub fn check_jsons(
     rules: &[String],
     asts: &[Expr],
-    json_str: &str,
+    json_line_str: &str,
     flags: &FlagSet,
     ignores: &FlagSet,
 ) -> Result<CheckResult, CheckError> {
-    let json_data: LabelMeData =
-        serde_json::from_str(json_str).map_err(|err| CheckError::InvalidJson(format!("{err}")))?;
+    let json_data: LabelMeData = serde_json::from_str(json_line_str)
+        .map_err(|err| CheckError::InvalidJson(format!("{err}")))?;
     check_json(rules, asts, json_data, flags, ignores)
+}
+
+pub fn check_json_line(
+    rules: &[String],
+    asts: &[Expr],
+    json_line_str: &str,
+    flags: &FlagSet,
+    ignores: &FlagSet,
+) -> Result<CheckResult, CheckError> {
+    let json_data: LabelMeDataLine = serde_json::from_str(json_line_str)
+        .map_err(|err| CheckError::InvalidJson(format!("{err}")))?;
+    check_json(rules, asts, json_data.content, flags, ignores)
 }
 
 pub fn check_json(

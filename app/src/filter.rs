@@ -22,7 +22,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     };
     for line in reader.lines() {
         let line = line?;
-        let check_result = lmrs::check_jsons(&rules, &asts, &line, &flag_set, &ignore_set);
+        let check_result = lmrs::check_json_line(&rules, &asts, &line, &flag_set, &ignore_set);
         if args.invert {
             if check_result.is_err() {
                 println!("{}", line);

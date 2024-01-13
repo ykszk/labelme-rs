@@ -102,8 +102,7 @@ impl LabelMeDataWImage {
 /// LabeleMeData with additional `filename` field for ndjsons
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct LabelMeDataLine {
-    #[serde(flatten)]
-    pub data: LabelMeData,
+    pub content: LabelMeData,
     pub filename: String,
 }
 
@@ -671,9 +670,10 @@ mod tests {
     fn test_lmdata_line() -> Result<()> {
         let lmd = LabelMeData::default();
         let lmd_string = serde_json::to_string(&lmd)?;
-        let mut lmdl: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(&lmd_string)?;
+        let lmd: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&lmd_string)?;
+        let mut lmdl: serde_json::Map<String, serde_json::Value> = serde_json::Map::default();
         assert!(lmdl.insert("filename".into(), "1.json".into()).is_none());
+        assert!(lmdl.insert("content".into(), lmd.into()).is_none());
         let lmdl_string = serde_json::to_string(&lmdl)?;
         let restored: LabelMeDataLine = lmdl_string.as_str().try_into()?;
         assert_eq!(restored.filename, "1.json");

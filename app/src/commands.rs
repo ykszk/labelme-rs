@@ -24,6 +24,9 @@ use lmrs::cli::Command;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
     match cli.command {
         Command::Catalog(args) => lms2html::cmd(args),
         Command::Svg(args) => lm2svg::cmd(args),

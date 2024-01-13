@@ -8,30 +8,23 @@ extern crate libc;
 
 fn print_ndjson(input: std::path::PathBuf, key: &str) -> Result<()> {
     let json_str = std::fs::read_to_string(&input)?;
-    let mut json_data: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_str(&json_str)?;
-    let should_be_none = json_data.insert(
+    let content: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&json_str)?;
+    let mut json_data: serde_json::Map<String, serde_json::Value> = serde_json::Map::default();
+    json_data.insert("content".into(), content.into());
+    json_data.insert(
         key.to_string(),
         input
             .file_name()
-            .context("filename is missing")?
+            .with_context(|| format!("Filename is missing in {:?}", input))?
             .to_string_lossy()
             .into(),
     );
-    if let Some(prev) = should_be_none {
-        bail!("\"{}\" key already exists with value \"{}\"", key, prev);
-    }
     let line = serde_json::to_string(&json_data)?;
     println!("{line}");
     Ok(())
 }
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    #[cfg(not(target_os = "windows"))]
-    unsafe {
-        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
-    }
-
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     for input in args.input {
         ensure!(input.exists(), "Input {:?} does not exist", input);
