@@ -1,71 +1,73 @@
-use anyhow::{anyhow, bail, ensure, Context, Result};
-use labelme_rs::serde_json;
+use anyhow::{ensure, Context, Result};
+use labelme_rs::{serde_json, LabelMeData, LabelMeDataLine};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 use lmrs::cli::SwapCmdArgs as CmdArgs;
 
-trait ImagePath {
-    fn image_path(&self) -> &str;
+fn swap_prefix_file(input: &Path, prefix: &str, output: &Path, pretty: bool) -> Result<()> {
+    let mut lm_data = LabelMeData::try_from(input)?;
+    lm_data.swap_prefix(prefix)?;
+    let line = if pretty {
+        serde_json::to_string_pretty(&lm_data)?
+    } else {
+        serde_json::to_string(&lm_data)?
+    };
+    let mut writer = std::io::BufWriter::new(std::fs::File::create(output)?);
+    writeln!(writer, "{}", line)?;
+    Ok(())
 }
 
-impl ImagePath for labelme_rs::LabelMeData {
-    fn image_path(&self) -> &str {
-        &self.imagePath
+trait Swap {
+    fn swap_prefix(&mut self, prefix: &str) -> Result<()>
+    where
+        Self: Sized;
+    fn swap_suffix(&mut self, suffix: &str) -> Result<()>
+    where
+        Self: Sized;
+}
+
+impl Swap for LabelMeData {
+    fn swap_prefix(&mut self, prefix: &str) -> Result<()>
+    where
+        Self: Sized,
+    {
+        self.imagePath = self.imagePath.replace('\\', "/");
+        let file_name = Path::new(&self.imagePath)
+            .file_name()
+            .with_context(|| format!("Failed to get file_name: {}", self.imagePath))?
+            .to_str()
+            .unwrap();
+        if prefix.is_empty() {
+            self.imagePath = file_name.into();
+        } else {
+            self.imagePath = format!("{}/{}", prefix, file_name);
+        }
+        Ok(())
+    }
+
+    fn swap_suffix(&mut self, suffix: &str) -> Result<()>
+    where
+        Self: Sized,
+    {
+        self.imagePath = self.imagePath.replace('\\', "/");
+        self.imagePath = Path::new(&self.imagePath)
+            .with_extension(suffix)
+            .to_str()
+            .unwrap()
+            .into();
+        Ok(())
     }
 }
 
-type JsonMap = serde_json::Map<String, serde_json::Value>;
-fn swap_prefix(key: &str, prefix: &str, mut json_data: JsonMap) -> Result<JsonMap> {
-    let entry = json_data.entry(key);
-    match entry {
-        serde_json::map::Entry::Vacant(_) => Err(anyhow!("{} not found", key)),
-        serde_json::map::Entry::Occupied(mut value) => {
-            let value = value.get_mut();
-            let path = value
-                .as_str()
-                .with_context(|| format!("Value {} is not a string", &value))?
-                .replace('\\', "/");
-            let file_name = Path::new(&path)
-                .file_name()
-                .with_context(|| format!("Failed to do file_name: {}", path))?
-                .to_str()
-                .with_context(|| format!("Failed to convert osstr to str: {}", path))?;
-            if prefix.is_empty() {
-                *value = file_name.into();
-            } else {
-                *value = format!(
-                    "{}{}{}",
-                    prefix,
-                    if prefix.ends_with('/') { "" } else { "/" },
-                    Path::new(&value.as_str().unwrap().replace('\\', "/"))
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                )
-                .into();
-            }
-            Ok(())
-        }
-    }?;
-    Ok(json_data)
-}
-
-fn swap_prefix_file(
-    input: &Path,
-    key: &str,
-    prefix: &str,
-    output: &Path,
-    pretty: bool,
-) -> Result<()> {
-    let json_str = std::fs::read_to_string(input)?;
-    let json_data: JsonMap = serde_json::from_str(&json_str)?;
+fn swap_suffix_file(input: &Path, suffix: &str, output: &Path, pretty: bool) -> Result<()> {
+    let mut lm_data = LabelMeData::try_from(input)?;
+    lm_data.swap_suffix(suffix)?;
     let line = if pretty {
-        serde_json::to_string_pretty(&swap_prefix(key, prefix, json_data)?)?
+        serde_json::to_string_pretty(&lm_data)?
     } else {
-        serde_json::to_string(&swap_prefix(key, prefix, json_data)?)?
+        serde_json::to_string(&lm_data)?
     };
     let mut writer = std::io::BufWriter::new(std::fs::File::create(output)?);
     writeln!(writer, "{}", line)?;
@@ -76,41 +78,65 @@ fn swap_prefix_file(
 fn test_swap_prefix() -> Result<()> {
     use std::path::PathBuf;
 
-    let key = "imagePath";
     let pretty = true;
-    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    filename.push("tests/img1.json");
+    let output_filename =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/output/img1_prefix_swapped.json");
+
+    let filename = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/img1.json");
     println!("{filename:?}");
     let original_data = labelme_rs::LabelMeData::try_from(filename.as_path()).unwrap();
-    let output_filename = PathBuf::from("tests/output/img1_swapped.json");
-    assert!(swap_prefix_file(&filename, key, "..", &output_filename, pretty).is_ok());
-    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
-    assert_eq!(
-        format!("../{}", original_data.imagePath),
-        swapped_data.imagePath
-    );
-    assert!(swap_prefix_file(&filename, key, "../", &output_filename, pretty).is_ok());
+    assert!(swap_prefix_file(&filename, "..", &output_filename, pretty).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!(
         format!("../{}", original_data.imagePath),
         swapped_data.imagePath
     );
 
-    let mut filename = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    filename.push("tests/backslash.json");
+    let filename = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/backslash.json");
     println!("{filename:?}");
-    let output_filename = PathBuf::from("tests/output/img1_swapped.json");
-    assert!(swap_prefix_file(&filename, key, "..", &output_filename, pretty).is_ok());
+    assert!(swap_prefix_file(&filename, "..", &output_filename, pretty).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!("../stem.jpg", swapped_data.imagePath);
-    assert!(swap_prefix_file(&filename, key, "", &output_filename, pretty).is_ok());
+    assert!(swap_prefix_file(&filename, "", &output_filename, pretty).is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!("stem.jpg", swapped_data.imagePath);
+
+    Ok(())
+}
+
+#[test]
+fn test_swap_suffix() -> Result<()> {
+    use std::path::PathBuf;
+    let pretty = true;
+    let output_filename =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/output/img1_suffix_swapped.json");
+
+    let filename = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/img1.json");
+    println!("{filename:?}");
+    assert!(swap_suffix_file(&filename, "png", &output_filename, pretty).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
+    assert_eq!("img1.png", swapped_data.imagePath);
+
+    let filename = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/backslash.json");
+    println!("{filename:?}");
+    assert!(swap_suffix_file(&filename, "", &output_filename, pretty).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
+    assert_eq!("parent/stem", swapped_data.imagePath);
+    assert!(swap_suffix_file(&filename, "irregular", &output_filename, pretty).is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
+    assert_eq!("parent/stem.irregular", swapped_data.imagePath);
+
     Ok(())
 }
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    let sanitized_prefix_suffix = if args.suffix {
+        args.prefix.trim_start_matches('.')
+    } else {
+        args.prefix.trim_end_matches('/')
+    };
+
     if args.input.is_dir() {
         let output = args.output.unwrap_or_else(|| args.input.clone());
         debug!("Directory input");
@@ -142,7 +168,11 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             let output = output
                 .clone()
                 .join(input.file_name().context("Failed to obtain filename")?);
-            swap_prefix_file(&input, &args.key, &args.prefix, &output, true)?;
+            if args.suffix {
+                swap_suffix_file(&input, sanitized_prefix_suffix, &output, true)?;
+            } else {
+                swap_prefix_file(&input, sanitized_prefix_suffix, &output, true)?;
+            }
             bar.inc(1);
         }
         bar.finish();
@@ -151,7 +181,11 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         if args.input.extension().is_some_and(|ext| ext == "json") {
             // single json
             let output = args.output.unwrap_or_else(|| args.input.clone());
-            swap_prefix_file(&args.input, &args.key, &args.prefix, &output, true)?;
+            if args.suffix {
+                swap_suffix_file(&args.input, sanitized_prefix_suffix, &output, true)?;
+            } else {
+                swap_prefix_file(&args.input, sanitized_prefix_suffix, &output, true)?;
+            }
         } else if args.input.as_os_str() == "-"
             || args
                 .input
@@ -176,19 +210,13 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             };
             for line in reader.lines() {
                 let line = line?;
-                let mut json_data_line: JsonMap = serde_json::from_str(&line)?;
-                let content = json_data_line
-                    .remove("content")
-                    .context("Extract content")?;
-                match content {
-                    serde_json::Value::Object(json_data) => {
-                        let json_data = swap_prefix(&args.key, &args.prefix, json_data)?;
-                        writeln!(writer, "{}", serde_json::to_string(&json_data)?)?;
-                    }
-                    value => {
-                        bail!("Invalid value in `content`: {value:?}")
-                    }
+                let mut lm_data_line = LabelMeDataLine::try_from(line.as_str())?;
+                if args.suffix {
+                    lm_data_line.content.swap_suffix(sanitized_prefix_suffix)?;
+                } else {
+                    lm_data_line.content.swap_prefix(sanitized_prefix_suffix)?;
                 }
+                writeln!(writer, "{}", serde_json::to_string(&lm_data_line)?)?;
             }
         } else {
             panic!("Unknown input type: {:?}", args.input);

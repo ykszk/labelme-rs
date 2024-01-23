@@ -17,12 +17,12 @@ pub enum Command {
     Svg(SvgCmdArgs),
     /// Validate labelme annotations
     Validate(ValidateCmdArgs),
-    /// Swap prefix of imagePath
+    /// Swap prefix (or suffix) of imagePath
     Swap(SwapCmdArgs),
-    /// Concat json files with `filename` key added into ndjson file
+    /// Create ndjson with `content` and `filename` keys
     #[clap(aliases = &["jsonl"])]
     Ndjson(NdjsonCmdArgs),
-    /// Split ndjson into json files
+    /// Split ndjson into json files. i.e. reverse of `lmrs ndjson`
     Split(SplitCmdArgs),
     /// Filter ndjson based on validation result
     Filter(FilterCmdArgs),
@@ -149,13 +149,13 @@ pub struct SvgCmdArgs {
 pub struct SwapCmdArgs {
     /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for ndjson input with stdin (for piping).
     pub input: PathBuf,
-    /// New imagePath prefix
+    /// New imagePath prefix (or suffix if `--suffix` is specified)
     pub prefix: String,
     /// Output json filename or output directory. Defaults: <INPUT> for directory or single file input, stdout for jsonl/ndjson input.
     pub output: Option<PathBuf>,
-    /// Swap prefix of the value associated by the given key instead of `imagePath`
-    #[clap(long, default_value = "imagePath")]
-    pub key: String,
+    /// Swap suffix (e.g. ".jpg") with the given suffix instead of swapping the prefix
+    #[clap(long)]
+    pub suffix: bool,
 }
 
 #[derive(Args, Debug)]

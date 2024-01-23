@@ -1,5 +1,5 @@
 .DS_Store
 *.svg
 /target
-app/tests/output/*.json
+lmrs/tests/output/*.json
 tmp*

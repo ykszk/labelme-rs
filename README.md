@@ -62,6 +62,17 @@ lmrs ndjson lmrs/tests | lmrs filter - -r lmrs/tests/rules.txt
 Add/Swap imagePath's prefix.
 e.g. `"imagePath": "img.jpg"` -> `"imagePath": "../images/img.jpg"`
 
+
+Changing pagent directory of the image
+```console
+lmrs swap JSON_DIR "../images"
+```
+
+Changing image extension:
+```console
+lmrs swap JSON_DIR "png" --suffix
+```
+
 Can be useful when combined with labelme's --output option.
 
 ## svg
