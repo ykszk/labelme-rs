@@ -13,4 +13,4 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.20", features = ["extension-module"] }
 labelme-rs = { path = "../labelme-rs" }
-app = { path = "../app" }
+lmrs = { path = "../lmrs" }

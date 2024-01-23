@@ -55,7 +55,7 @@ lmrs ndjson json_indir | jq -c 'select(.is_good)' | lmrs split -o json_outdir
 Filter valid/invalid data. See `validate` command for validation details.
 
 ```console
-lmrs ndjson app/tests | lmrs filter - -r app/tests/rules.txt
+lmrs ndjson lmrs/tests | lmrs filter - -r lmrs/tests/rules.txt
 ```
 
 ## swap
@@ -74,7 +74,7 @@ Create HTML with svgs from labelme directory.
 Validate the number of points in annotations based on the given rules and show the list of complaints about the annotation.
 
 ```console
-lmrs validate app/tests/rules.txt app/tests --verbose
+lmrs validate lmrs/tests/rules.txt lmrs/tests --verbose
 ```
 
 Output:
