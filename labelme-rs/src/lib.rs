@@ -308,7 +308,7 @@ impl LabelMeData {
     pub fn count_labels(&self) -> IndexMap<&str, usize> {
         let mut counts: IndexMap<&str, usize> = IndexMap::new();
         let mut shape_map = self.to_shape_map();
-        if let Some(point_data) = shape_map.remove("point") {
+        if let Some(point_data) = shape_map.swap_remove("point") {
             for (label, points) in point_data {
                 counts
                     .entry(label)

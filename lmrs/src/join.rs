@@ -47,7 +47,7 @@ fn join_inner(
     let mut right = right;
     left.into_iter()
         .filter_map(|(key, mut left_obj)| {
-            right.remove(&key).map(|right_obj| {
+            right.swap_remove(&key).map(|right_obj| {
                 lmrs::merge(&mut left_obj, right_obj);
                 (key, left_obj)
             })
