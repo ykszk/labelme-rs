@@ -6,7 +6,6 @@ use std::io::{BufRead, BufReader};
 use lmrs::cli::SplitCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let reader: Box<dyn BufRead> = match args.input {
         None => Box::new(BufReader::new(std::io::stdin())),
         Some(filename) => Box::new(BufReader::new(File::open(filename)?)),

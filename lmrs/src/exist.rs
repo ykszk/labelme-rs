@@ -10,7 +10,6 @@ use std::{
 use lmrs::cli::ExistCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let (reader, json_parent_dir): (Box<dyn BufRead>, PathBuf) = if args.input.as_os_str() == "-" {
         (
             Box::new(BufReader::new(std::io::stdin())),

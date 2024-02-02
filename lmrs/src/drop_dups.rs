@@ -27,7 +27,6 @@ fn drop(json_lines: impl BufRead, key: &str, mut out: impl Write) -> Result<()> 
 }
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
         Box::new(BufReader::new(std::io::stdin()))
     } else {

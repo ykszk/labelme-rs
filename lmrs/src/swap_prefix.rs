@@ -130,7 +130,6 @@ fn test_swap_suffix() -> Result<()> {
 }
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let sanitized_prefix_suffix = if args.suffix {
         args.prefix.trim_start_matches('.')
     } else {

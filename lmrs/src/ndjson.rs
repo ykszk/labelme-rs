@@ -25,7 +25,6 @@ fn print_ndjson(input: std::path::PathBuf, key: &str) -> Result<()> {
 }
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     for input in args.input {
         ensure!(input.exists(), "Input {:?} does not exist", input);
         if input.is_dir() {

@@ -9,8 +9,6 @@ use labelme_rs::{load_label_colors, LabelColorsHex, LabelMeDataWImage};
 use lmrs::cli::HtmlCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
-
     let mut templates = tera::Tera::default();
     templates.autoescape_on(vec![]);
     templates.add_raw_templates(vec![

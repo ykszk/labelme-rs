@@ -5,7 +5,6 @@ use labelme_rs::{load_label_colors, LabelColorsHex};
 use lmrs::cli::SvgCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let mut json_data = labelme_rs::LabelMeData::try_from(if args.input.as_os_str() == "-" {
         let mut buf = String::new();
         std::io::stdin().read_to_string(&mut buf)?;

@@ -4,7 +4,6 @@ use labelme_rs::serde_json;
 use lmrs::cli::InitCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     if args.input.is_dir() {
         let entries = glob::glob(
             args.input
