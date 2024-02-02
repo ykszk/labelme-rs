@@ -3,7 +3,7 @@ Utility tools for labelme json files
 # Install
 Download pre-built binary from [Releases](https://github.com/ykszk/labelme-rs/releases) page.
 
-Or compile from the source code:
+Or compile from source:
 ```console
 cargo install --git https://github.com/ykszk/labelme-rs
 ```
@@ -21,24 +21,26 @@ Invoke commands like so:
 lmrs <COMMAND> [args and options]
 ```
 
-# Commands
 Use
 ```console
 lmrs <COMMAND> --help
 ```
 to see help in full detail.
 
+# Generic commands
+Commands that work for any json.
+
 ## ndjson
-Create jsonl/ndjson file from the given json-containing directory.
-`filename` key is added to each json to make this process invertible.
-Use `split` command to invert.
+Create ndjson/json file from the given json-containing directory.
+Resulting lines are structured as `{content:JSON_CONTENT, filename:JSON_FILENAME}`.
+Use `split` command to undo.
 
 ```console
-lmrs ndjson json_directory/ > jsons.ndjson
+lmrs ndjson JSON_DIRECTORY > jsons.ndjson
 ```
 
 ## split
-Undo `lmrs ndjson` process.
+Undo `lmrs ndjson`.
 i.e. split ndjson file into separate json files using `filename` values as filenames.
 
 Simple use:
@@ -51,12 +53,22 @@ Use with `jq` filtering:
 lmrs ndjson json_indir | jq -c 'select(.is_good)' | lmrs split -o json_outdir
 ```
 
-## filter
-Filter valid/invalid data. See `validate` command for validation details.
+## drop
+Drop duplicates except for the first occurrence
 
 ```console
-lmrs ndjson lmrs/tests | lmrs filter - -r lmrs/tests/rules.txt
+cat 1.ndjson 2.ndjson | lmrs drop --key id
 ```
+
+## join
+Join (not concatenate) ndjson files
+
+```console
+lmrs join left.ndjson right.ndjson
+```
+
+# Labelme commands
+Commands that only work for json in labelme format.
 
 ## swap
 Add/Swap imagePath's prefix.
@@ -75,11 +87,18 @@ lmrs swap JSON_DIR "png" --suffix
 
 Can be useful when combined with labelme's --output option.
 
+## filter
+Filter valid/invalid data. See `validate` command for validation details.
+
+```console
+lmrs ndjson lmrs/tests | lmrs filter - -r lmrs/tests/rules.txt
+```
+
 ## svg
 Create SVG image from labeme annotation.
 
-## html
-Create HTML with svgs from labelme directory.
+## catalog
+Create HTML cataloging svgs from labelme directory.
 
 ## validate
 Validate the number of points in annotations based on the given rules and show the list of complaints about the annotation.
@@ -101,20 +120,6 @@ BL > 0
 BR > 0
 TL == TR
 BL == BR
-```
-
-## drop
-Drop duplicates except for the first occurrence
-
-```console
-cat 1.ndjson 2.ndjson | lmrs drop --key id
-```
-
-## join
-Join ndjson files
-
-```console
-lmrs join left.ndjson right.ndjson
 ```
 
 ## resize
