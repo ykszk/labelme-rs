@@ -8,6 +8,7 @@ extern crate log;
 use anyhow::Result;
 
 mod drop_dups;
+mod exist;
 mod filter;
 mod init;
 mod join;
@@ -39,5 +40,6 @@ fn main() -> Result<()> {
         Command::Join(args) => join::cmd(args),
         Command::Resize(args) => resize::cmd(args),
         Command::Init(args) => init::cmd(args),
+        Command::Exist(args) => exist::cmd(args),
     }
 }

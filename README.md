@@ -131,6 +131,14 @@ Create empty labelme json for the image
 lmrs init image_directory | lmrs split -o json_directory
 ```
 
+## exist
+Check `imagePath` existence
+
+Print missing image file:
+```console
+lmrs exist labelmes.ndjson | jq -cr ".content.imagePath"
+```
+
 # Python binding
 Install:
 

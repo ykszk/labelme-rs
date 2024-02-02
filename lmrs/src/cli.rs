@@ -34,6 +34,8 @@ pub enum Command {
     Resize(ResizeCmdArgs),
     /// Create empty labelme json for the image
     Init(InitCmdArgs),
+    /// Check if `imagePath` exists. `imagePath` is resolved relative to the input ndjson file or the current working directory if the input is stdin
+    Exist(ExistCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -59,7 +61,7 @@ pub struct FilterCmdArgs {
     #[clap(short, long)]
     pub ignore: Vec<String>,
     /// Invert filtering. i.e. output invalid lines
-    #[clap(long, action)]
+    #[clap(short = 'v', long)]
     pub invert: bool,
 }
 
@@ -230,4 +232,13 @@ pub enum JoinMode {
     Left,
     /// Outer
     Outer,
+}
+
+#[derive(Debug, Args)]
+pub struct ExistCmdArgs {
+    /// Input ndjson. Specify "-" to use stdin
+    pub input: PathBuf,
+    /// Invert output
+    #[clap(short = 'v', long)]
+    pub invert: bool,
 }

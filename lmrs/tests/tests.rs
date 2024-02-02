@@ -97,3 +97,46 @@ fn test_filter() -> Result<()> {
     assert!(!filter_stdout.contains("test.json"), "Filtering error");
     Ok(())
 }
+
+#[test]
+fn test_exist() -> Result<()> {
+    let bin = env!("CARGO_BIN_EXE_lmrs");
+    let json_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/data/");
+    // change to the directory containing the test data
+    std::env::set_current_dir(json_dir)?;
+    let ndjson_output = Command::new(bin).arg("ndjson").arg(".").output()?;
+    assert_eq!(ndjson_output.stderr.len(), 0);
+
+    // test exist
+    let mut proc = Command::new(bin)
+        .arg("exist")
+        .arg("-")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let proc_stdin = proc.stdin.as_mut().unwrap();
+    proc_stdin.write_all(&ndjson_output.stdout)?;
+
+    let proc_output = proc.wait_with_output()?;
+    assert_eq!(proc_output.stdout, ndjson_output.stdout);
+
+    // test inverted exist
+    let mut proc = Command::new(bin)
+        .arg("exist")
+        .arg("-")
+        .arg("--invert")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let proc_stdin = proc.stdin.as_mut().unwrap();
+    proc_stdin.write_all(&ndjson_output.stdout)?;
+
+    let proc_output = proc.wait_with_output()?;
+    assert_eq!(proc_output.stdout.len(), 0);
+
+    Ok(())
+}
