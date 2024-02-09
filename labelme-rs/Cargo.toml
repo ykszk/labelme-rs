@@ -5,6 +5,10 @@ edition.workspace = true
 repository.workspace = true
 description.workspace = true
 
+[features]
+# default = ["dicom"]
+dicom = ["dep:dicom-object", "dep:dicom-pixeldata", "dep:dicom-dictionary-std"]
+
 [dependencies]
 thiserror.workspace = true
 serde = { version = "1", features = ["derive"] }
@@ -14,12 +18,17 @@ image = { version = "0.24", default-features = false, features = [
     "png",
     "jpeg",
 ] }
-zune-jpeg = "0.3"
 base64 = "0.21"
 svg = "0"
 indexmap = { version = "2", features = ["serde"] }
 lazy_static = "1.4"
 regex = "1"
+dicom-object = { version="0.6.3", optional = true }
+dicom-dictionary-std = { version="0.6.1", optional = true }
+dicom-pixeldata = { version = "0.2.2", optional = true, default-features = false, features = [
+    "image",
+    "gdcm",
+] }
 
 [dev-dependencies]
 anyhow.workspace = true

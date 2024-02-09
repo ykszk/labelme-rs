@@ -29,8 +29,8 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     } else {
         std::thread::available_parallelism()?.get()
     };
-    info!("Use {n_jobs} cores");
-    info!("Load jsons");
+    debug!("Use {n_jobs} cores");
+    debug!("Load jsons");
     let mut entries: Vec<(PathBuf, Box<labelme_rs::LabelMeData>)> = if args.input.is_dir() {
         let entries: Result<Vec<_>> = glob::glob(
             args.input
@@ -105,7 +105,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         None => IndexMap::new(),
     };
     let mut all_shapes: IndexSet<String> = IndexSet::default();
-    info!("Collect tag and label info");
+    debug!("Collect tag and label info");
     std::thread::scope(|scope| {
         let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
         let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
@@ -152,7 +152,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         None => None,
     };
 
-    info!("Generate svgs");
+    debug!("Generate svgs");
     std::thread::scope(|scope| {
         let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
         let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
@@ -165,9 +165,11 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                         let mut json_data = entry.1.clone();
 
                         json_data.imagePath = json_data.imagePath.replace('\\', "/");
+                        let image_path = json_data.imagePath.clone();
                         let json_data = json_data.to_absolute_path(&json_dir);
                         let mut data_w_img: LabelMeDataWImage =
-                            LabelMeDataWImage::try_from(json_data)?;
+                            LabelMeDataWImage::try_from(json_data)
+                                .with_context(|| format!("load {}", image_path))?;
 
                         if let Some(param) = resize_param.as_ref() {
                             data_w_img.resize(param);
@@ -200,8 +202,8 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                         context.insert(
                             "name",
                             &input
-                                .file_name()
-                                .context("Failed to get file_name")?
+                                .file_stem()
+                                .context("Failed to get file_stem")?
                                 .to_string_lossy(),
                         );
                         context.insert("svg", &document.to_string());
@@ -227,7 +229,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     {
         shared_bar.lock().unwrap().finish();
     };
-    info!("Generate html");
+    debug!("Generate html");
     let shape_toggles: std::result::Result<Vec<_>, _> = all_shapes
         .iter()
         .map(|shape| {
@@ -271,9 +273,9 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     context.insert("main", &svgs.join("\n"));
     context.insert("style", &style);
     let html = templates.render("catalog.html", &context)?;
-    info!("Write html");
+    debug!("Write html");
     let mut writer = std::io::BufWriter::new(std::fs::File::create(args.output)?);
     writer.write_all(html.as_bytes())?;
-    info!("Done");
+    debug!("Done");
     Ok(())
 }

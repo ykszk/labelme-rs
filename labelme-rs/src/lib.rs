@@ -1,6 +1,6 @@
 use base64::Engine;
 pub use image;
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView};
 pub use indexmap;
 use indexmap::{IndexMap, IndexSet};
 use regex::Regex;
@@ -8,14 +8,15 @@ pub use serde;
 use serde::{Deserialize, Serialize};
 pub use serde_json;
 use std::collections::HashMap;
-use std::error::Error;
 use std::io::Cursor;
 use std::path::Path;
 pub use svg;
 use svg::node::element;
 use thiserror::Error;
-use zune_jpeg::zune_core::colorspace::ColorSpace;
-use zune_jpeg::JpegDecoder;
+
+#[cfg(feature = "dicom")]
+use dicom_pixeldata::{ConvertOptions, PixelDecoder, VoiLutOption};
+
 #[macro_use]
 extern crate lazy_static;
 
@@ -51,13 +52,13 @@ pub enum LabelMeDataError {
     #[error("Json Error")]
     SerdeError(#[from] serde_json::Error),
     #[error("Image Error")]
-    ImageError(#[from] image::ImageError),
+    ImageError(#[from] ImageError),
 }
 
 #[derive(Debug, Clone)]
 pub struct LabelMeDataWImage {
     pub data: LabelMeData,
-    pub image: image::DynamicImage,
+    pub image: DynamicImage,
 }
 
 impl TryFrom<&Path> for LabelMeDataWImage {
@@ -77,16 +78,16 @@ impl TryFrom<&Path> for LabelMeDataWImage {
 }
 
 impl TryFrom<LabelMeData> for LabelMeDataWImage {
-    type Error = image::ImageError;
+    type Error = LabelMeDataError;
 
     fn try_from(data: LabelMeData) -> Result<Self, Self::Error> {
-        let image = image::open(&data.imagePath)?;
+        let image = load_image(Path::new(&data.imagePath))?;
         Ok(Self { data, image })
     }
 }
 
 impl LabelMeDataWImage {
-    pub fn new(data: LabelMeData, image: image::DynamicImage) -> Self {
+    pub fn new(data: LabelMeData, image: DynamicImage) -> Self {
         Self { data, image }
     }
 
@@ -162,7 +163,7 @@ impl TryFrom<&str> for ResizeParam {
 
 impl ResizeParam {
     /// Resize image
-    pub fn resize(&self, img: &image::DynamicImage) -> image::DynamicImage {
+    pub fn resize(&self, img: &DynamicImage) -> DynamicImage {
         match self {
             Self::Percentage(..) => {
                 let size = self.size(img.dimensions().0, img.dimensions().1);
@@ -211,7 +212,7 @@ impl ResizeParam {
     }
 }
 
-pub fn img2base64(img: &image::DynamicImage, format: image::ImageOutputFormat) -> String {
+pub fn img2base64(img: &DynamicImage, format: image::ImageOutputFormat) -> String {
     let mut cursor = Cursor::new(Vec::new());
     img.write_to(&mut cursor, format).unwrap();
     base64::engine::general_purpose::STANDARD.encode(cursor.into_inner())
@@ -324,7 +325,7 @@ impl LabelMeData {
         label_colors: &LabelColorsHex,
         point_radius: usize,
         line_width: usize,
-        img: &image::DynamicImage,
+        img: &DynamicImage,
     ) -> svg::Document {
         let (image_width, image_height) = img.dimensions();
         let mut document = svg::Document::new()
@@ -545,39 +546,46 @@ impl TryFrom<&Path> for LabelMeData {
     }
 }
 
-pub fn load_image(path: &Path) -> Result<image::DynamicImage, Box<dyn Error>> {
-    let img_fmt = image::ImageFormat::from_path(path)?;
+#[cfg(feature = "dicom")]
+#[derive(Error, Debug)]
+pub enum DicomError {
+    #[error("Read Error")]
+    DicomError(#[from] dicom_object::ReadError),
+    #[error("Image Error")]
+    ImageError(#[from] dicom_pixeldata::Error),
+}
 
-    let img = match img_fmt {
-        image::ImageFormat::Jpeg => {
-            let buf = std::fs::read(path)?;
-            let mut decoder = JpegDecoder::new(&buf);
-            let pixels = decoder.decode()?;
-            let color_space = decoder.get_input_colorspace().unwrap();
-            let image_info = decoder.info().unwrap();
-            match color_space {
-                ColorSpace::Luma => image::ImageBuffer::from_raw(
-                    image_info.width as u32,
-                    image_info.height as u32,
-                    pixels,
-                )
-                .map(image::DynamicImage::ImageLuma8)
-                .unwrap(),
-                ColorSpace::RGB | ColorSpace::RGBA | ColorSpace::YCbCr => {
-                    image::ImageBuffer::from_raw(
-                        image_info.width as u32,
-                        image_info.height as u32,
-                        pixels,
-                    )
-                    .map(image::DynamicImage::ImageRgb8)
-                    .unwrap()
-                }
-                _ => panic!("Unsupported jpeg color space: {:?}", color_space),
-            }
-        }
-        _ => image::open(path)?,
-    };
-    Ok(img)
+#[derive(Error, Debug)]
+pub enum ImageError {
+    #[error("Image Error")]
+    ImageError(#[from] image::ImageError),
+
+    #[cfg(feature = "dicom")]
+    #[error("Dicom Error")]
+    DicomError(#[from] DicomError),
+}
+
+#[cfg(feature = "dicom")]
+pub fn load_dicom(path: &Path) -> Result<DynamicImage, DicomError> {
+    let obj = dicom_object::open_file(path)?;
+    let image = obj.decode_pixel_data()?;
+    let options = ConvertOptions::new()
+        .with_voi_lut(VoiLutOption::Normalize)
+        .force_8bit();
+    let dynamic_image = image.to_dynamic_image_with_options(0, &options)?;
+    Ok(dynamic_image)
+}
+
+pub fn load_image(path: &Path) -> Result<DynamicImage, ImageError> {
+    #[cfg(feature = "dicom")]
+    if path
+        .extension()
+        .map_or(false, |ext| ext == "dcm" || ext == "dicom")
+    {
+        let dynamic_image = load_dicom(path)?;
+        return Ok(dynamic_image);
+    }
+    Ok(image::open(path)?)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
