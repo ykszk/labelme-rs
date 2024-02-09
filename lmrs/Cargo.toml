@@ -14,6 +14,9 @@ path = "src/commands.rs"
 name = "lmrs"
 path = "src/lib.rs"
 
+[features]
+dicom = ["labelme-rs/dicom"]
+
 [dependencies]
 labelme-rs = { path = "../labelme-rs" }
 clap = { version = "4", features = ["derive"] }
