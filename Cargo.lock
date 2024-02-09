@@ -818,7 +818,7 @@ checksum = "17ab85f84ca42c5ec520e6f3c9966ba1fd62909ce260f8837e248857d2560509"
 
 [[package]]
 name = "labelme-rs"
-version = "0.8.5"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -866,7 +866,7 @@ dependencies = [
 
 [[package]]
 name = "lmrs"
-version = "0.8.5"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "chumsky",
@@ -886,7 +886,7 @@ dependencies = [
 
 [[package]]
 name = "lmrspy"
-version = "0.8.5"
+version = "0.9.0"
 dependencies = [
  "labelme-rs",
  "lmrs",
@@ -1771,7 +1771,7 @@ checksum = "dff9641d1cd4be8d1a070daf9e3773c5f67e78b4d9d42263020c057706765c04"
 
 [[package]]
 name = "xtask"
-version = "0.8.5"
+version = "0.9.0"
 dependencies = [
  "clap",
  "clap_complete",
