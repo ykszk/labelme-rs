@@ -19,16 +19,16 @@ dicom = ["labelme-rs/dicom"]
 
 [dependencies]
 labelme-rs = { path = "../labelme-rs" }
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4.5.0", features = ["derive"] }
 anyhow.workspace = true
 thiserror.workspace = true
-tera = { version = "1", default-features = false }
-log = "0"
-env_logger = "0"
-glob = "0"
-indicatif = "0.17"
-chumsky = { version = "0", features = ["std"] }
-num_cpus = "1"
-libc = "0"
-jzon = "0.12"
-mimalloc = "0.1"
+tera = { version = "1.19.1", default-features = false }
+log = "0.4.20"
+env_logger = "0.11.1"
+glob = "0.3.1"
+indicatif = "0.17.7"
+chumsky = { version = "0.9.3", features = ["std"] }
+num_cpus = "1.16.0"
+libc = "0.2.153"
+jzon = "0.12.5"
+mimalloc = "0.1.39"
