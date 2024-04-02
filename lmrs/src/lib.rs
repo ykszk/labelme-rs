@@ -232,6 +232,35 @@ pub fn check_json_line(
     check_json(rules, asts, json_data.content, flags, ignores)
 }
 
+pub fn evaluate_rules(
+    rules: &[String],
+    asts: &[Expr],
+    shapes: Vec<labelme_rs::Shape>,
+) -> Vec<(String, (isize, isize))> {
+    let mut point_map: IndexMap<String, Vec<Point>> = IndexMap::new();
+    for shape in shapes.into_iter() {
+        let vec: &mut Vec<Point> = point_map.entry(shape.label).or_default();
+        vec.push(shape.points[0]);
+    }
+    let vars: Vec<_> = point_map
+        .iter()
+        .map(|(k, v)| (k, v.len() as isize))
+        .collect();
+
+    let errors: Vec<_> = asts
+        .iter()
+        .zip(rules.iter())
+        .filter_map(|(ast, rule)| {
+            let result = eval(ast, &vars);
+            match result {
+                Ok(_) => None,
+                Err(vals) => Some((rule.clone(), vals)),
+            }
+        })
+        .collect();
+    errors
+}
+
 pub fn check_json(
     rules: &[String],
     asts: &[Expr],
@@ -249,27 +278,7 @@ pub fn check_json(
     {
         return Ok(CheckResult::Skipped);
     }
-    let mut point_map: IndexMap<String, Vec<Point>> = IndexMap::new();
-    for shape in json_data.shapes.into_iter() {
-        let vec: &mut Vec<Point> = point_map.entry(shape.label).or_default();
-        vec.push(shape.points[0]);
-    }
-    let vars: Vec<_> = point_map
-        .iter()
-        .map(|(k, v)| (k, v.len() as isize))
-        .collect();
-
-    let mut errors: Vec<_> = asts
-        .iter()
-        .zip(rules.iter())
-        .filter_map(|(ast, rule)| {
-            let result = eval(ast, &vars);
-            match result {
-                Ok(_) => None,
-                Err(vals) => Some((rule.clone(), vals)),
-            }
-        })
-        .collect();
+    let mut errors = evaluate_rules(rules, asts, json_data.shapes);
     if errors.is_empty() {
         Ok(CheckResult::Passed)
     } else if errors.len() == 1 {

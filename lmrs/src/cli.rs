@@ -54,12 +54,6 @@ pub struct FilterCmdArgs {
     /// Text file(s) containing rules
     #[clap(short, long)]
     pub rules: Vec<PathBuf>,
-    /// Check only json files containing given flag(s). Multiple flags are concatenated by OR.
-    #[clap(short, long)]
-    pub flag: Vec<String>,
-    /// Ignore json files containing given flag(s). Multiple flags are concatenated by OR.
-    #[clap(short, long)]
-    pub ignore: Vec<String>,
     /// Invert filtering. i.e. output invalid lines
     #[clap(short = 'v', long)]
     pub invert: bool,

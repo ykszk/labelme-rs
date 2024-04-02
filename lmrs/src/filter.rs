@@ -1,5 +1,5 @@
-use anyhow::Result;
-use labelme_rs::FlagSet;
+use anyhow::{Context, Result};
+use labelme_rs::serde_json;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -8,13 +8,12 @@ use lmrs::cli::FilterCmdArgs as CmdArgs;
 pub fn cmd(args: CmdArgs) -> Result<()> {
     let mut rules: Vec<String> = Vec::new();
     for filename in args.rules {
-        let ar = lmrs::load_rules(&filename)?;
+        let ar = lmrs::load_rules(&filename)
+            .with_context(|| format!("Reading rule file {filename:?}"))?;
         rules.extend(ar);
     }
     assert!(!rules.is_empty(), "No rule is found.");
     let asts = lmrs::parse_rules(&rules)?;
-    let flag_set: FlagSet = args.flag.into_iter().collect();
-    let ignore_set: FlagSet = args.ignore.into_iter().collect();
     let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
         Box::new(BufReader::new(std::io::stdin()))
     } else {
@@ -22,15 +21,11 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     };
     for line in reader.lines() {
         let line = line?;
-        let check_result = lmrs::check_json_line(&rules, &asts, &line, &flag_set, &ignore_set);
-        if args.invert {
-            if check_result.is_err() {
-                println!("{}", line);
-            }
-        } else if let Ok(ret) = check_result {
-            if ret == lmrs::CheckResult::Passed {
-                println!("{}", line);
-            }
+        let json_data: labelme_rs::LabelMeDataLine =
+            serde_json::from_str(&line).with_context(|| format!("Processing line:{line}"))?;
+        let errors = lmrs::evaluate_rules(&rules, &asts, json_data.content.shapes);
+        if errors.is_empty() ^ args.invert {
+            println!("{}", line);
         }
     }
     Ok(())
