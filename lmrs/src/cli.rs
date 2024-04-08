@@ -26,6 +26,8 @@ pub enum Command {
     Split(SplitCmdArgs),
     /// Filter ndjson based on validation result
     Filter(FilterCmdArgs),
+    /// Remove labels from ndjson
+    Remove(RemoveCmdArgs),
     /// Drop duplicates except for the first occurrence
     Drop(DropCmdArgs),
     /// Join ndjson files
@@ -55,6 +57,18 @@ pub struct FilterCmdArgs {
     #[clap(short, long)]
     pub rules: Vec<PathBuf>,
     /// Invert filtering. i.e. output invalid lines
+    #[clap(short = 'v', long)]
+    pub invert: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct RemoveCmdArgs {
+    /// Input ndjson filename. Specify '-' to use stdin
+    pub input: PathBuf,
+    /// Label(s) to remove
+    #[clap(short, long, required = true)]
+    pub label: Vec<String>,
+    /// Invert removal condition.
     #[clap(short = 'v', long)]
     pub invert: bool,
 }

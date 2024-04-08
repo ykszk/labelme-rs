@@ -15,6 +15,7 @@ mod join;
 mod lm2svg;
 mod lms2html;
 mod ndjson;
+mod remove;
 mod resize;
 mod split_ndjson;
 mod swap_prefix;
@@ -42,5 +43,6 @@ fn main() -> Result<()> {
         Command::Resize(args) => resize::cmd(args),
         Command::Init(args) => init::cmd(args),
         Command::Exist(args) => exist::cmd(args),
+        Command::Remove(args) => remove::cmd(args),
     }
 }

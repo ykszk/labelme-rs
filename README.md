@@ -94,6 +94,13 @@ Filter valid/invalid data. See `validate` command for validation details.
 lmrs ndjson lmrs/tests | lmrs filter - -r lmrs/tests/rules.txt
 ```
 
+## remove
+Remove annotation with specified label(s).
+
+```console
+lmrs ndjson lmrs/tests | lmrs remove - --labels TL
+```
+
 ## svg
 Create SVG image from labeme annotation.
 
