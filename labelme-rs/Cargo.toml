@@ -25,10 +25,18 @@ lazy_static = "1.4.0"
 regex = "1.10.3"
 dicom-object = { version="0.6.3", optional = true }
 dicom-dictionary-std = { version="0.6.1", optional = true }
+
+[target.'cfg(not(windows))'.dependencies]
 dicom-pixeldata = { version = "0.2.2", optional = true, default-features = false, features = [
     "image",
     "gdcm",
 ] }
+# remove windows specific dependencies once dicom-pixeldata is updated from 0.2.2
+[target.'cfg(windows)'.dependencies]
+dicom-pixeldata = { version = "0.2.2", optional = true, default-features = false, features = [
+    "image",
+] }
+
 
 [dev-dependencies]
 anyhow.workspace = true
