@@ -286,6 +286,10 @@ impl LabelMeData {
 
     /// Update `imagePath` to absolute path if it is relative
     pub fn to_absolute_path(mut self, canonical_json_dir: &Path) -> Self {
+        #[cfg(not(target_os = "windows"))]
+        {
+            self.imagePath = self.imagePath.replace('\\', "/");
+        }
         let image_path = Path::new(&self.imagePath);
         if image_path.is_relative() {
             self.imagePath = canonical_json_dir

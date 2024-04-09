@@ -38,6 +38,8 @@ pub enum Command {
     Init(InitCmdArgs),
     /// Check if `imagePath` exists. `imagePath` is resolved relative to the input ndjson file or the current working directory if the input is stdin
     Exist(ExistCmdArgs),
+    /// Archive json and associated images
+    Archive(ArchiveCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -199,6 +201,14 @@ pub struct InitCmdArgs {
     /// Key for filename. Only for ndjson output
     #[clap(long, default_value = "filename", id = "key")]
     pub filename: String,
+}
+
+#[derive(Debug, Args)]
+pub struct ArchiveCmdArgs {
+    /// Input directory
+    pub input: PathBuf,
+    /// Output archive (.tar)
+    pub output: PathBuf,
 }
 
 #[derive(Debug, Args)]

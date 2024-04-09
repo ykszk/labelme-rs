@@ -20,6 +20,7 @@ mod resize;
 mod split_ndjson;
 mod swap_prefix;
 mod validate;
+mod archive;
 
 use lmrs::cli::Cli;
 use lmrs::cli::Command;
@@ -45,5 +46,6 @@ fn main() -> Result<()> {
         Command::Init(args) => init::cmd(args),
         Command::Exist(args) => exist::cmd(args),
         Command::Remove(args) => remove::cmd(args),
+        Command::Archive(args) => archive::cmd(args),
     }
 }

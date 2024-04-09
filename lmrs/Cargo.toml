@@ -32,3 +32,7 @@ num_cpus = "1.16.0"
 libc = "0.2.153"
 jzon = "0.12.5"
 mimalloc = "0.1.39"
+tar = "0.4.40"
+
+[dev-dependencies]
+tempfile = "3.10.1"
