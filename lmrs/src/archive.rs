@@ -1,40 +1,68 @@
-use std::{fs::File, path::PathBuf};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    path::PathBuf,
+};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 
+use labelme_rs::serde_json;
 use lmrs::cli::ArchiveCmdArgs as CmdArgs;
-use tar::Builder;
+use tar::{Builder, Header};
+
+fn add_image(data: &lmrs::LabelMeData, ar: &mut Builder<File>) -> Result<()> {
+    let image_path: PathBuf = data.imagePath.clone().into();
+    let mut image_file = File::open(&image_path)
+        .with_context(|| format!("Failed to open image file: {:?}", image_path))?;
+    let image_name = image_path.file_name().unwrap().to_str().unwrap();
+    ar.append_file(image_name, &mut image_file)?;
+    Ok(())
+}
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    if args.input.is_file() {
-        bail!("File input is not implemented")
-    }
-    let entries = glob::glob(
-        args.input
-            .join("*.json")
-            .to_str()
-            .context("Failed to obtain glob string")?,
-    )
-    .expect("Failed to read glob pattern");
-    let json_dir = args.input.canonicalize()?;
     let output_file = std::fs::File::create(&args.output)
         .with_context(|| format!("Failed to create file: {:?}", args.output))?;
-
     let mut ar = Builder::new(output_file);
+    if args.input.is_file() || args.input.as_os_str() == "-" {
+        // process ndjson file
+        let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
+            Box::new(BufReader::new(std::io::stdin()))
+        } else {
+            Box::new(BufReader::new(File::open(&args.input)?))
+        };
+        let json_dir = std::env::current_dir()?.canonicalize()?;
 
-    for entry in entries {
-        let input = entry?;
-        ar.append_file(
-            input.file_name().unwrap().to_str().unwrap(),
-            &mut File::open(&input)?,
-        )?;
-        let data = labelme_rs::LabelMeData::try_from(input.as_path())?.to_absolute_path(&json_dir);
-        let image_path: PathBuf = data.imagePath.into();
-        let mut image_file = File::open(&image_path)
-            .with_context(|| format!("Failed to open image file: {:?}", image_path))?;
-        let image_name = image_path.file_name().unwrap().to_str().unwrap();
-        ar.append_file(image_name, &mut image_file)?;
+        for line in reader.lines() {
+            let line = line?;
+            let data_line: labelme_rs::LabelMeDataLine = serde_json::from_str(&line)?;
+
+            let data = data_line.content.to_absolute_path(&json_dir);
+            let json = serde_json::to_string(&data)?;
+            let mut header = Header::new_gnu();
+            header.set_size(json.len() as u64);
+            ar.append_data(&mut header, data_line.filename, json.as_bytes())?;
+            add_image(&data, &mut ar)?;
+        }
+    } else {
+        let entries = glob::glob(
+            args.input
+                .join("*.json")
+                .to_str()
+                .context("Failed to obtain glob string")?,
+        )
+        .expect("Failed to read glob pattern");
+        let json_dir = args.input.canonicalize()?;
+
+        for entry in entries {
+            let input = entry?;
+            ar.append_path_with_name(&input, input.file_name().unwrap().to_str().unwrap())?;
+            let data =
+                labelme_rs::LabelMeData::try_from(input.as_path())?.to_absolute_path(&json_dir);
+            add_image(&data, &mut ar)?;
+        }
     }
+    ar.finish()?;
+
     Ok(())
 }
 
