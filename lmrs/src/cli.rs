@@ -240,16 +240,27 @@ pub struct JoinCmdArgs {
     /// Join mode
     #[clap(long, default_value = "outer")]
     pub mode: JoinMode,
+    /// Missing key handling
+    #[clap(long, default_value = "exit")]
+    pub missing: MissingHandling,
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone)]
 pub enum JoinMode {
     /// Inner
     Inner,
-    /// Left inner
+    /// Left outer
     Left,
-    /// Outer
+    /// Full outer
     Outer,
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum MissingHandling {
+    /// Exit on missing key
+    Exit,
+    /// Continue on missing key
+    Continue,
 }
 
 #[derive(Debug, Args)]

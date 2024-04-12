@@ -5,8 +5,8 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 type JzonObject = jzon::JsonValue;
-use lmrs::cli::JoinCmdArgs as CmdArgs;
 use lmrs::cli::JoinMode;
+use lmrs::cli::{JoinCmdArgs as CmdArgs, MissingHandling};
 
 fn load_ndjson(input: &Path, key: &str) -> Result<IndexMap<String, JzonObject>> {
     let reader: Box<dyn BufRead> = if input.as_os_str() == "-" {
@@ -43,35 +43,52 @@ fn load_ndjson(input: &Path, key: &str) -> Result<IndexMap<String, JzonObject>> 
 fn join_inner(
     left: IndexMap<String, JzonObject>,
     right: IndexMap<String, JzonObject>,
-) -> IndexMap<String, JzonObject> {
+    missing_handling: MissingHandling,
+) -> Result<IndexMap<String, JzonObject>> {
     let mut right = right;
-    left.into_iter()
-        .filter_map(|(key, mut left_obj)| {
-            right.swap_remove(&key).map(|right_obj| {
-                lmrs::merge(&mut left_obj, right_obj);
-                (key, left_obj)
-            })
-        })
-        .collect()
+    let mut joined = IndexMap::new();
+    for (key, left_obj) in left {
+        match right.swap_remove(&key) {
+            Some(right_obj) => {
+                let mut obj = left_obj;
+                lmrs::merge(&mut obj, right_obj);
+                joined.insert(key, obj);
+            }
+            None => {
+                if missing_handling == MissingHandling::Exit {
+                    bail!("Key {} not found in right object", key);
+                }
+            }
+        }
+    }
+    Ok(joined)
 }
 
 fn join_left(
     left: IndexMap<String, JzonObject>,
     right: IndexMap<String, JzonObject>,
-) -> IndexMap<String, JzonObject> {
+    missing_handling: MissingHandling,
+) -> Result<IndexMap<String, JzonObject>> {
     let mut left = left;
     for (key, right_obj) in right {
-        left.entry(key).and_modify(|left_obj| {
-            lmrs::merge(left_obj, right_obj);
-        });
+        match left.entry(key) {
+            labelme_rs::indexmap::map::Entry::Occupied(mut left_obj) => {
+                lmrs::merge(left_obj.get_mut(), right_obj);
+            }
+            labelme_rs::indexmap::map::Entry::Vacant(entry) => {
+                if missing_handling == MissingHandling::Exit {
+                    bail!("Key {} not found in left object", entry.key());
+                }
+            }
+        }
     }
-    left
+    Ok(left)
 }
 
 fn join_outer(
     left: IndexMap<String, JzonObject>,
     right: IndexMap<String, JzonObject>,
-) -> IndexMap<String, JzonObject> {
+) -> Result<IndexMap<String, JzonObject>> {
     let mut left = left;
     for (key, right_obj) in right.into_iter() {
         let entry = left.entry(key);
@@ -84,7 +101,7 @@ fn join_outer(
             }
         }
     }
-    left
+    Ok(left)
 }
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
@@ -97,11 +114,11 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         .reduce(|l, r| {
             l.and_then(|l| {
                 r.map(|r| match args.mode {
-                    JoinMode::Inner => join_inner(l, r),
-                    JoinMode::Left => join_left(l, r),
+                    JoinMode::Inner => join_inner(l, r, args.missing),
+                    JoinMode::Left => join_left(l, r, args.missing),
                     JoinMode::Outer => join_outer(l, r),
                 })
-            })
+            })?
         })
         .unwrap();
     debug!("Print result");
@@ -119,15 +136,24 @@ fn test_join() -> anyhow::Result<()> {
     let l: IndexMap<String, JzonObject> = IndexMap::from([("k1".into(), jzon::parse("{}")?)]);
     let r: IndexMap<String, JzonObject> = IndexMap::from([("k2".into(), jzon::parse("{}")?)]);
 
-    let joined = join_inner(l.clone(), r.clone());
+    // inner
+    let joined = join_inner(l.clone(), r.clone(), MissingHandling::Exit);
+    assert!(joined.is_err());
+
+    let joined = join_inner(l.clone(), r.clone(), MissingHandling::Continue)?;
     assert!(!joined.contains_key("k1"));
     assert!(!joined.contains_key("k2"));
 
-    let joined = join_left(l.clone(), r.clone());
+    // left
+    let joined = join_left(l.clone(), r.clone(), MissingHandling::Exit);
+    assert!(joined.is_err());
+
+    let joined = join_left(l.clone(), r.clone(), MissingHandling::Continue)?;
     assert!(joined.contains_key("k1"));
     assert!(!joined.contains_key("k2"));
 
-    let joined = join_outer(l, r);
+    // outer
+    let joined = join_outer(l, r)?;
     assert!(joined.contains_key("k1"));
     assert!(joined.contains_key("k2"));
     Ok(())
