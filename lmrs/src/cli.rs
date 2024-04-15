@@ -28,6 +28,8 @@ pub enum Command {
     Filter(FilterCmdArgs),
     /// Remove labels from ndjson
     Remove(RemoveCmdArgs),
+    /// Change shape type
+    Shapeshift(ShapeshiftCmdArgs),
     /// Drop duplicates except for the first occurrence
     Drop(DropCmdArgs),
     /// Join ndjson files
@@ -73,6 +75,28 @@ pub struct RemoveCmdArgs {
     /// Invert removal condition.
     #[clap(short = 'v', long)]
     pub invert: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct ReshapeCircle2Point {
+    /// Point index to use as the point (0 or 1)
+    #[clap(short, long, default_value = "0")]
+    pub index: usize,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ReshapeType {
+    /// Circle to point
+    C2P(ReshapeCircle2Point),
+}
+
+#[derive(Args, Debug)]
+pub struct ShapeshiftCmdArgs {
+    /// Input ndjson filename. Specify '-' to use stdin
+    pub input: PathBuf,
+    /// Label(s) to remove
+    #[clap(subcommand)]
+    pub reshape: ReshapeType,
 }
 
 #[derive(Args, Debug)]
