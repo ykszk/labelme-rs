@@ -1,4 +1,4 @@
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -102,17 +102,19 @@ pub struct ShapeshiftCmdArgs {
 #[derive(Args, Debug)]
 pub struct ValidateCmdArgs {
     /// Rules
+    #[clap(value_hint = ValueHint::FilePath)]
     pub rules: PathBuf,
     /// Input directory
+    #[clap(value_hint = ValueHint::DirPath)]
     pub input: PathBuf,
     /// Check only json files containing given flag(s). Multiple flags are concatenated by OR.
     #[clap(short, long)]
     pub flag: Vec<String>,
     /// Ignore json files containing given flag(s). Multiple flags are concatenated by OR.
-    #[clap(short, long)]
+    #[clap(short, long, value_hint = ValueHint::Other)]
     pub ignore: Vec<String>,
     /// Additional rules
-    #[clap(short, long)]
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub additional: Vec<PathBuf>,
     /// Report stats at the end
     #[clap(short, long)]
@@ -131,12 +133,13 @@ pub struct HtmlCmdArgs {
     /// Specify "-" to use stdin as input
     pub input: PathBuf,
     /// Output html filename
+    #[clap(value_hint = ValueHint::FilePath)]
     pub output: PathBuf,
     /// Config filename. Used for `label_colors`
-    #[clap(short, long)]
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub config: Option<PathBuf>,
     /// Flags filename. Used to sort flags
-    #[clap(short, long)]
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub flags: Option<PathBuf>,
     /// Circle radius
     #[clap(long, default_value = "2")]
@@ -145,16 +148,16 @@ pub struct HtmlCmdArgs {
     #[clap(long, default_value = "2")]
     pub line_width: usize,
     /// Resize image. Specify in imagemagick's `-resize`-like format
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::Other)]
     pub resize: Option<String>,
     /// HTML title
-    #[clap(long, default_value = "catalog")]
+    #[clap(long, default_value = "catalog", value_hint = ValueHint::Other)]
     pub title: String,
     /// CSS filename
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub css: Option<PathBuf>,
     /// Override imagePath's directory
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::DirPath)]
     pub image_dir: Option<PathBuf>,
     /// The number of jobs. Use all available cores by default.
     #[clap(short, long)]
@@ -164,11 +167,13 @@ pub struct HtmlCmdArgs {
 #[derive(Debug, Args)]
 pub struct SvgCmdArgs {
     /// Input json filename
+    #[clap(value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Output svg filename
+    #[clap(value_hint = ValueHint::FilePath)]
     pub output: PathBuf,
     /// Config filename. Used for `label_colors`
-    #[clap(short, long)]
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub config: Option<PathBuf>,
     /// Circle radius
     #[clap(long, default_value = "2")]
@@ -177,7 +182,7 @@ pub struct SvgCmdArgs {
     #[clap(long, default_value = "2")]
     pub line_width: usize,
     /// Resize image. Specify in imagemagick's `-resize`-like format
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::Other)]
     pub resize: Option<String>,
 }
 
@@ -186,8 +191,10 @@ pub struct SwapCmdArgs {
     /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for ndjson input with stdin (for piping).
     pub input: PathBuf,
     /// New imagePath prefix (or suffix if `--suffix` is specified)
+    #[clap(value_hint = ValueHint::Other)]
     pub prefix: String,
     /// Output json filename or output directory. Defaults: <INPUT> for directory or single file input, stdout for jsonl/ndjson input.
+    #[clap(value_hint = ValueHint::FilePath)]
     pub output: Option<PathBuf>,
     /// Swap suffix (e.g. ".jpg") with the given suffix instead of swapping the prefix
     #[clap(long)]
@@ -199,19 +206,20 @@ pub struct ResizeCmdArgs {
     /// Input jsonl/ndjson. Specify `-` to use stdin
     pub input: PathBuf,
     /// Resize parameter. Specify in imagemagick's `-resize`-like format
+    #[clap(value_hint = ValueHint::Other)]
     pub param: String,
     /// Output directory for resized images
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::DirPath)]
     pub image: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
 pub struct NdjsonCmdArgs {
     /// Directories, json files, or ndjson/jsonl files
-    #[clap(required=true, num_args=1..)]
+    #[clap(required=true, num_args=1.., value_hint = ValueHint::AnyPath)]
     pub input: Vec<PathBuf>,
     /// Key for filename. Only for ndjson output
-    #[clap(long, default_value = "filename", id = "key")]
+    #[clap(long, default_value = "filename", id = "key", value_hint = ValueHint::Other)]
     pub filename: String,
     /// Keep parent directory in the filename
     #[clap(short, long)]
@@ -221,35 +229,39 @@ pub struct NdjsonCmdArgs {
 #[derive(Debug, Args)]
 pub struct InitCmdArgs {
     /// Input image or image containing directory
+    #[clap(value_hint = ValueHint::DirPath)]
     pub input: PathBuf,
     /// Image extension
-    #[clap(long, default_value = "jpg")]
+    #[clap(long, default_value = "jpg", value_hint = ValueHint::Other)]
     pub extension: String,
     /// Key for filename. Only for ndjson output
-    #[clap(long, default_value = "filename", id = "key")]
+    #[clap(long, default_value = "filename", id = "key", value_hint = ValueHint::Other)]
     pub filename: String,
 }
 
 #[derive(Debug, Args)]
 pub struct ArchiveCmdArgs {
     /// Input directory
+    #[clap(value_hint = ValueHint::DirPath)]
     pub input: PathBuf,
     /// Output archive (.tar)
+    #[clap(value_hint = ValueHint::FilePath)]
     pub output: PathBuf,
 }
 
 #[derive(Debug, Args)]
 pub struct SplitCmdArgs {
     /// Input ndjson filename. Stdin is used if omitted
+    #[clap(value_hint = ValueHint::FilePath)]
     pub input: Option<PathBuf>,
     /// Output directory. Working directory is used by default
-    #[clap(short, long)]
+    #[clap(short, long, value_hint = ValueHint::DirPath)]
     pub output: Option<PathBuf>,
     /// Key for filename
-    #[clap(long, default_value = "filename")]
+    #[clap(long, default_value = "filename", value_hint = ValueHint::Other)]
     pub filename: String,
     /// Key for content
-    #[clap(long, default_value = "content")]
+    #[clap(long, default_value = "content", value_hint = ValueHint::Other)]
     pub content: String,
     /// Overwrite json files if exist
     #[clap(long, action)]
