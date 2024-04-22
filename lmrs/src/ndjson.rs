@@ -6,19 +6,21 @@ use std::io::{BufRead, BufReader};
 #[cfg(not(target_os = "windows"))]
 extern crate libc;
 
-fn print_ndjson(input: std::path::PathBuf, key: &str) -> Result<()> {
+fn print_ndjson(input: std::path::PathBuf, key: &str, keep_parent: bool) -> Result<()> {
     let json_str = std::fs::read_to_string(&input)?;
     let content: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&json_str)?;
     let mut json_data: serde_json::Map<String, serde_json::Value> = serde_json::Map::default();
     json_data.insert("content".into(), content.into());
-    json_data.insert(
-        key.to_string(),
+    let filename: String = if keep_parent {
+        input.to_string_lossy().into()
+    } else {
         input
             .file_name()
             .with_context(|| format!("Filename is missing in {:?}", input))?
             .to_string_lossy()
-            .into(),
-    );
+            .into()
+    };
+    json_data.insert(key.to_string(), filename.into());
     let line = serde_json::to_string(&json_data)?;
     println!("{line}");
     Ok(())
@@ -37,7 +39,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             .expect("Failed to read glob pattern");
             for entry in entries {
                 let input = entry?;
-                print_ndjson(input, &args.filename)?;
+                print_ndjson(input, &args.filename, args.parent)?;
             }
         } else if input
             .extension()
@@ -49,7 +51,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                 println!("{}", line?);
             }
         } else if input.extension().map(|ext| ext == "json").unwrap_or(false) {
-            print_ndjson(input, &args.filename)?;
+            print_ndjson(input, &args.filename, args.parent)?;
         } else {
             bail!("{:?} is not a directory, json, or ndjson/jsonl", input);
         }

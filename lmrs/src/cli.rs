@@ -213,6 +213,9 @@ pub struct NdjsonCmdArgs {
     /// Key for filename. Only for ndjson output
     #[clap(long, default_value = "filename", id = "key")]
     pub filename: String,
+    /// Keep parent directory in the filename
+    #[clap(short, long)]
+    pub parent: bool,
 }
 
 #[derive(Debug, Args)]
