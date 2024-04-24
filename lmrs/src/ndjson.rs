@@ -1,24 +1,26 @@
 use anyhow::{bail, ensure, Context, Result};
 use labelme_rs::serde_json;
-use lmrs::cli::NdjsonCmdArgs as CmdArgs;
+use lmrs::cli::{NdjsonCmdArgs as CmdArgs, ParentHandling};
+use serde_json::{Map, Value};
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 
 #[cfg(not(target_os = "windows"))]
 extern crate libc;
 
-fn print_ndjson(input: std::path::PathBuf, key: &str, keep_parent: bool) -> Result<()> {
+fn print_ndjson(input: PathBuf, key: &str, parent_handling: ParentHandling) -> Result<()> {
     let json_str = std::fs::read_to_string(&input)?;
-    let content: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&json_str)?;
-    let mut json_data: serde_json::Map<String, serde_json::Value> = serde_json::Map::default();
+    let content: Map<String, Value> = serde_json::from_str(&json_str)?;
+    let mut json_data: Map<String, Value> = Map::default();
     json_data.insert("content".into(), content.into());
-    let filename: String = if keep_parent {
-        input.to_string_lossy().into()
-    } else {
-        input
+    let filename: String = match parent_handling {
+        ParentHandling::Keep => input.to_string_lossy().into(),
+        ParentHandling::Absolute => input.canonicalize()?.to_string_lossy().into(),
+        ParentHandling::Remove => input
             .file_name()
             .with_context(|| format!("Filename is missing in {:?}", input))?
             .to_string_lossy()
-            .into()
+            .into(),
     };
     json_data.insert(key.to_string(), filename.into());
     let line = serde_json::to_string(&json_data)?;

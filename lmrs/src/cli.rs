@@ -213,6 +213,16 @@ pub struct ResizeCmdArgs {
     pub image: Option<PathBuf>,
 }
 
+#[derive(ValueEnum, Debug, Copy, Clone)]
+pub enum ParentHandling {
+    /// Keep given parent directory
+    Keep,
+    /// Change to absolute path
+    Absolute,
+    /// Remove parent directory
+    Remove,
+}
+
 #[derive(Debug, Args)]
 pub struct NdjsonCmdArgs {
     /// Directories, json files, or ndjson/jsonl files
@@ -221,9 +231,9 @@ pub struct NdjsonCmdArgs {
     /// Key for filename. Only for ndjson output
     #[clap(long, default_value = "filename", id = "key", value_hint = ValueHint::Other)]
     pub filename: String,
-    /// Keep parent directory in the filename
-    #[clap(short, long)]
-    pub parent: bool,
+    /// Change parent directory in the `filename` field of the output. Applicable only for json and directory inputs
+    #[clap(short, long, default_value = "keep")]
+    pub parent: ParentHandling,
 }
 
 #[derive(Debug, Args)]
