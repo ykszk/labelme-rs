@@ -212,7 +212,7 @@ impl ResizeParam {
     }
 }
 
-pub fn img2base64(img: &DynamicImage, format: image::ImageOutputFormat) -> String {
+pub fn img2base64(img: &DynamicImage, format: image::ImageFormat) -> String {
     let mut cursor = Cursor::new(Vec::new());
     img.write_to(&mut cursor, format).unwrap();
     base64::engine::general_purpose::STANDARD.encode(cursor.into_inner())
@@ -339,7 +339,7 @@ impl LabelMeData {
             .set("xmlns:xlink", "http://www.w3.org/1999/xlink");
         let b64 = format!(
             "data:image/jpeg;base64,{}",
-            img2base64(img, image::ImageOutputFormat::Jpeg(75))
+            img2base64(img, image::ImageFormat::Jpeg)
         );
         let bg = element::Image::new()
             .set("x", 0i64)
