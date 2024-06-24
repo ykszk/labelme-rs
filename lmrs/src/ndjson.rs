@@ -34,7 +34,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         if input.is_dir() {
             let entries = glob::glob(
                 input
-                    .join("*.json")
+                    .join(args.glob.as_str())
                     .to_str()
                     .context("Failed to obtain glob string")?,
             )

@@ -234,6 +234,9 @@ pub struct NdjsonCmdArgs {
     /// Change parent directory in the `filename` field of the output. Applicable only for json and directory inputs
     #[clap(short, long, default_value = "keep")]
     pub parent: ParentHandling,
+    /// Glob pattern. Default: "*.json". Specify "**/*.json" for recursive search
+    #[clap(short, long, default_value = "*.json", value_hint = ValueHint::Other)]
+    pub glob: String,
 }
 
 #[derive(Debug, Args)]
