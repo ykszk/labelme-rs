@@ -57,6 +57,8 @@ fn join_inner(
             None => {
                 if missing_handling == MissingHandling::Exit {
                     bail!("Key {} not found in right object", key);
+                } else {
+                    debug!("Key {} not found in left object", key);
                 }
             }
         }
@@ -78,6 +80,8 @@ fn join_left(
             labelme_rs::indexmap::map::Entry::Vacant(entry) => {
                 if missing_handling == MissingHandling::Exit {
                     bail!("Key {} not found in left object", entry.key());
+                } else {
+                    debug!("Key {} not found in left object", entry.key());
                 }
             }
         }
