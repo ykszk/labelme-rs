@@ -22,6 +22,7 @@ mod shapeshift;
 mod split_ndjson;
 mod swap_prefix;
 mod validate;
+mod count;
 
 use lmrs::cli::Cli;
 use lmrs::cli::Command;
@@ -49,5 +50,6 @@ fn main() -> Result<()> {
         Command::Remove(args) => remove::cmd(args),
         Command::Shapeshift(args) => shapeshift::cmd(args),
         Command::Archive(args) => archive::cmd(args),
+        Command::Count(args) => count::cmd(args),
     }
 }

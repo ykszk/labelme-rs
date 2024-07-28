@@ -42,6 +42,8 @@ pub enum Command {
     Exist(ExistCmdArgs),
     /// Archive json and associated images
     Archive(ArchiveCmdArgs),
+    /// Count flags
+    Count(CountCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -322,4 +324,10 @@ pub struct ExistCmdArgs {
     /// Invert output
     #[clap(short = 'v', long)]
     pub invert: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct CountCmdArgs {
+    /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for ndjson input with stdin (for piping).
+    pub input: PathBuf,
 }

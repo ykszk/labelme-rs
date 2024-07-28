@@ -11,7 +11,7 @@ dicom = ["dep:dicom-object", "dep:dicom-pixeldata", "dep:dicom-dictionary-std"]
 
 [dependencies]
 thiserror.workspace = true
-serde = { version = "1.0.196", features = ["derive"] }
+serde.workspace = true
 serde_json = { version = "1.0.113", features = ["preserve_order"] }
 serde_yaml = "0.9.31"
 image = { version = "0.25.1", default-features = false, features = [
