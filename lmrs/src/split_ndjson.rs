@@ -8,7 +8,9 @@ use lmrs::cli::SplitCmdArgs as CmdArgs;
 pub fn cmd(args: CmdArgs) -> Result<()> {
     let reader: Box<dyn BufRead> = match args.input {
         None => Box::new(BufReader::new(std::io::stdin())),
-        Some(filename) => Box::new(BufReader::new(File::open(filename)?)),
+        Some(filename) => Box::new(BufReader::new(
+            File::open(&filename).with_context(|| format!("Opening {:?}", filename))?,
+        )),
     };
     let outdir = args.output.unwrap_or_default();
     for line in reader.lines() {
@@ -24,7 +26,10 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             ensure!(!output_filename.exists(),
             "Output file {output_filename:?} already exists. Add \"--overwrite\" option to force overwriting.");
         }
-        let writer = std::io::BufWriter::new(std::fs::File::create(&output_filename)?);
+        let writer = std::io::BufWriter::new(
+            std::fs::File::create(&output_filename)
+                .with_context(|| format!("Writing to {:?}", output_filename))?,
+        );
         serde_json::to_writer_pretty(writer, &json_data.get(&args.content))?;
     }
     Ok(())
