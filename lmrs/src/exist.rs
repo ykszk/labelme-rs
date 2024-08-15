@@ -35,6 +35,8 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         let image_path = Path::new(&lmdata.imagePath);
         if args.invert ^ image_path.exists() {
             println!("{}", line);
+        } else {
+            info!("skipping: {}", lmdata.imagePath);
         }
     }
     Ok(())
