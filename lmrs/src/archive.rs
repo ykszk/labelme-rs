@@ -10,7 +10,7 @@ use labelme_rs::serde_json;
 use lmrs::cli::ArchiveCmdArgs as CmdArgs;
 use tar::{Builder, Header};
 
-fn add_image(data: &lmrs::LabelMeData, ar: &mut Builder<File>) -> Result<()> {
+fn add_image<W: std::io::Write>(data: &lmrs::LabelMeData, ar: &mut Builder<W>) -> Result<()> {
     let image_path: PathBuf = data.imagePath.clone().into();
     let mut image_file = File::open(&image_path)
         .with_context(|| format!("Failed to open image file: {:?}", image_path))?;
@@ -19,10 +19,8 @@ fn add_image(data: &lmrs::LabelMeData, ar: &mut Builder<File>) -> Result<()> {
     Ok(())
 }
 
-pub fn cmd(args: CmdArgs) -> Result<()> {
-    let output_file = std::fs::File::create(&args.output)
-        .with_context(|| format!("Failed to create file: {:?}", args.output))?;
-    let mut ar = Builder::new(output_file);
+fn archive<W: std::io::Write>(args: CmdArgs, ar: Builder<W>) -> Result<()> {
+    let mut ar = ar;
     if args.input.is_file() || args.input.as_os_str() == "-" {
         // process ndjson file
         let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
@@ -62,8 +60,17 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         }
     }
     ar.finish()?;
-
     Ok(())
+}
+
+pub fn cmd(args: CmdArgs) -> Result<()> {
+    if args.output.as_os_str() == "-" {
+        archive(args, Builder::new(std::io::stdout()))
+    } else {
+        let output_file = std::fs::File::create(&args.output)
+            .with_context(|| format!("Failed to create file: {:?}", args.output))?;
+        archive(args, Builder::new(output_file))
+    }
 }
 
 #[cfg(test)]

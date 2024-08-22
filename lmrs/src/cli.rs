@@ -259,7 +259,7 @@ pub struct ArchiveCmdArgs {
     /// Input directory
     #[clap(value_hint = ValueHint::DirPath)]
     pub input: PathBuf,
-    /// Output archive (.tar)
+    /// Output archive (.tar) or "-" for stdout
     #[clap(value_hint = ValueHint::FilePath)]
     pub output: PathBuf,
 }
