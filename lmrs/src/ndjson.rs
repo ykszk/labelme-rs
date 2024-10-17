@@ -9,7 +9,8 @@ use std::path::PathBuf;
 extern crate libc;
 
 fn print_ndjson(input: PathBuf, key: &str, parent_handling: ParentHandling) -> Result<()> {
-    let json_str = std::fs::read_to_string(&input)?;
+    let json_str =
+        std::fs::read_to_string(&input).with_context(|| format!("Reading {:?}", input))?;
     let content: Map<String, Value> = serde_json::from_str(&json_str)?;
     let mut json_data: Map<String, Value> = Map::default();
     json_data.insert("content".into(), content.into());
@@ -31,12 +32,15 @@ fn print_ndjson(input: PathBuf, key: &str, parent_handling: ParentHandling) -> R
 pub fn cmd(args: CmdArgs) -> Result<()> {
     for input in args.input {
         ensure!(input.exists(), "Input {:?} does not exist", input);
+        let mut options = glob::MatchOptions::new();
+        options.require_literal_leading_dot = !args.all;
         if input.is_dir() {
-            let entries = glob::glob(
+            let entries = glob::glob_with(
                 input
                     .join(args.glob.as_str())
                     .to_str()
                     .context("Failed to obtain glob string")?,
+                options,
             )
             .expect("Failed to read glob pattern");
             for entry in entries {

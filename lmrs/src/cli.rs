@@ -239,6 +239,9 @@ pub struct NdjsonCmdArgs {
     /// Glob pattern. Default: "*.json". Specify "**/*.json" for recursive search
     #[clap(short, long, default_value = "*.json", value_hint = ValueHint::Other)]
     pub glob: String,
+    /// Do not ignore entries starting with `.`
+    #[clap(short, long)]
+    pub all: bool,
 }
 
 #[derive(Debug, Args)]
