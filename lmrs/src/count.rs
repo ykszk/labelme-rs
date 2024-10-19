@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use labelme_rs::indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
 use labelme_rs::{serde_json, LabelMeData, LabelMeDataLine};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -48,6 +48,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     } else {
         debug!("File or stdin input");
         if args.input.extension().is_some_and(|ext| ext == "json") {
+            unimplemented!("json file input");
         } else if args.input.as_os_str() == "-"
             || args
                 .input

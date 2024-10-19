@@ -1,0 +1,38 @@
+---
+source: lmrs/tests/tests.rs
+expression: "str::from_utf8(&output.stdout)?"
+---
+{
+  "version": "5.0.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "l",
+      "points": [
+        [
+          3.0,
+          2.0
+        ]
+      ],
+      "group_id": null,
+      "shape_type": "point",
+      "flags": {}
+    },
+    {
+      "label": "l",
+      "points": [
+        [
+          1.0,
+          4.0
+        ]
+      ],
+      "group_id": null,
+      "shape_type": "point",
+      "flags": {}
+    }
+  ],
+  "imagePath": "img1.jpg",
+  "imageData": null,
+  "imageHeight": 512,
+  "imageWidth": 512
+}

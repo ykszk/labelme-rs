@@ -151,6 +151,9 @@ Print missing image file:
 lmrs exist labelmes.ndjson | jq -cr ".content.imagePath"
 ```
 
+## Sort
+Sort shapes by point coordinatess
+
 # Python binding
 Install:
 

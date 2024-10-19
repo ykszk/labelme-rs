@@ -36,4 +36,5 @@ tar = "0.4.40"
 serde.workspace = true
 
 [dev-dependencies]
+insta = "1.40.0"
 tempfile = "3.10.1"

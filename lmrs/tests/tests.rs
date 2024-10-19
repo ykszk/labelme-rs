@@ -140,3 +140,37 @@ fn test_exist() -> Result<()> {
 
     Ok(())
 }
+#[test]
+fn test_sort() -> Result<()> {
+    let bin = env!("CARGO_BIN_EXE_lmrs");
+    let json_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
+    // change to the directory containing the test data
+    std::env::set_current_dir(json_dir)?;
+
+    let output = Command::new(bin).arg("sort").arg("sort.json").output()?;
+    insta::assert_snapshot!("sort-default", str::from_utf8(&output.stdout)?);
+
+    let output = Command::new(bin)
+        .arg("sort")
+        .arg("sort.json")
+        .arg("--descending")
+        .output()?;
+    insta::assert_snapshot!("sort-descending", str::from_utf8(&output.stdout)?);
+
+    let output = Command::new(bin)
+        .arg("sort")
+        .arg("sort.json")
+        .arg("--by-x")
+        .output()?;
+    insta::assert_snapshot!("sort-by_x", str::from_utf8(&output.stdout)?);
+
+    let output = Command::new(bin)
+        .arg("sort")
+        .arg("sort.json")
+        .arg("--by-x")
+        .arg("--descending")
+        .output()?;
+    insta::assert_snapshot!("sort-by_x-descending", str::from_utf8(&output.stdout)?);
+
+    Ok(())
+}

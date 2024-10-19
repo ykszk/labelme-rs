@@ -8,6 +8,7 @@ extern crate log;
 use anyhow::Result;
 
 mod archive;
+mod count;
 mod drop_dups;
 mod exist;
 mod filter;
@@ -19,10 +20,10 @@ mod ndjson;
 mod remove;
 mod resize;
 mod shapeshift;
+mod sort;
 mod split_ndjson;
 mod swap_prefix;
 mod validate;
-mod count;
 
 use lmrs::cli::Cli;
 use lmrs::cli::Command;
@@ -51,5 +52,6 @@ fn main() -> Result<()> {
         Command::Shapeshift(args) => shapeshift::cmd(args),
         Command::Archive(args) => archive::cmd(args),
         Command::Count(args) => count::cmd(args),
+        Command::Sort(args) => sort::cmd(args),
     }
 }

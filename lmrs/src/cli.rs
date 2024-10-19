@@ -40,10 +40,12 @@ pub enum Command {
     Init(InitCmdArgs),
     /// Check if `imagePath` exists. `imagePath` is resolved relative to the input ndjson file or the current working directory if the input is stdin
     Exist(ExistCmdArgs),
-    /// Archive json and associated images
+    /// Archive json and associated images as a tarball
     Archive(ArchiveCmdArgs),
     /// Count flags
     Count(CountCmdArgs),
+    /// Sort shapes by point coordinates
+    Sort(SortCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -324,7 +326,7 @@ pub enum MissingHandling {
 pub struct ExistCmdArgs {
     /// Input ndjson. Specify "-" to use stdin
     pub input: PathBuf,
-    /// Invert output
+    /// Invert output. i.e. output non-existing files
     #[clap(short = 'v', long)]
     pub invert: bool,
 }
@@ -333,4 +335,18 @@ pub struct ExistCmdArgs {
 pub struct CountCmdArgs {
     /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for ndjson input with stdin (for piping).
     pub input: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub struct SortCmdArgs {
+    /// Input json or jsonl/ndjson filename.
+    pub input: PathBuf,
+
+    /// Sort by x coordinate
+    #[clap(short = 'x', long)]
+    pub by_x: bool,
+
+    /// Sort in descending order
+    #[clap(short, long)]
+    pub descending: bool,
 }

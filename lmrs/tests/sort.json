@@ -1,0 +1,34 @@
+{
+    "version": "5.0.1",
+    "flags": {},
+    "shapes": [
+        {
+            "label": "l",
+            "points": [
+                [
+                    1,
+                    4
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "point",
+            "flags": {}
+        },
+        {
+            "label": "l",
+            "points": [
+                [
+                    3,
+                    2
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "point",
+            "flags": {}
+        }
+    ],
+    "imagePath": "img1.jpg",
+    "imageData": null,
+    "imageHeight": 512,
+    "imageWidth": 512
+}
