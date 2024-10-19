@@ -2,13 +2,19 @@ use anyhow::Result;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::str;
 
 #[test]
 fn test_split_ndjson() -> Result<()> {
     let bin = env!("CARGO_BIN_EXE_lmrs");
     let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
     let json_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
-    let output = Command::new(bin).arg("ndjson").arg(&json_dir).output()?;
+    let output = Command::new(bin)
+        .arg("ndjson")
+        .arg(&json_dir)
+        .arg("--parent")
+        .arg("remove")
+        .output()?;
     assert_eq!(output.stderr.len(), 0);
 
     let mut proc = Command::new(bin)
@@ -102,13 +108,21 @@ fn test_filter() -> Result<()> {
 fn test_exist() -> Result<()> {
     let bin = env!("CARGO_BIN_EXE_lmrs");
     let json_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/data/");
-    // change to the directory containing the test data
-    std::env::set_current_dir(json_dir)?;
-    let ndjson_output = Command::new(bin).arg("ndjson").arg(".").output()?;
-    assert_eq!(ndjson_output.stderr.len(), 0);
+    let ndjson_output = Command::new(bin)
+        .current_dir(&json_dir)
+        .arg("ndjson")
+        .arg("Mandrill.json")
+        .output()?;
+    if ndjson_output.status.code() != Some(0) {
+        println!("stderr: {}", str::from_utf8(&ndjson_output.stderr)?);
+        println!("stdout: {}", str::from_utf8(&ndjson_output.stdout)?);
+    }
+    assert_eq!(ndjson_output.stderr.len(), 0,);
+    assert_ne!(ndjson_output.stdout.len(), 0);
 
     // test exist
     let mut proc = Command::new(bin)
+        .current_dir(&json_dir)
         .arg("exist")
         .arg("-")
         .stdin(Stdio::piped())
@@ -124,6 +138,7 @@ fn test_exist() -> Result<()> {
 
     // test inverted exist
     let mut proc = Command::new(bin)
+        .current_dir(&json_dir)
         .arg("exist")
         .arg("-")
         .arg("--invert")
@@ -140,6 +155,7 @@ fn test_exist() -> Result<()> {
 
     Ok(())
 }
+
 #[test]
 fn test_sort() -> Result<()> {
     let bin = env!("CARGO_BIN_EXE_lmrs");
