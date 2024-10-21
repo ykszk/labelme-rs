@@ -21,7 +21,12 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         let serde_json::Value::String(filename) = v_filename else {
             panic!("expected String")
         };
-        let output_filename = outdir.join(filename);
+        let output_filename = match args.parent {
+            lmrs::cli::SplitParentHandling::Keep => outdir.join(filename),
+            lmrs::cli::SplitParentHandling::Ignore => {
+                outdir.join(std::path::Path::new(&filename).file_name().unwrap())
+            }
+        };
         if !args.overwrite {
             ensure!(!output_filename.exists(),
             "Output file {output_filename:?} already exists. Add \"--overwrite\" option to force overwriting.");

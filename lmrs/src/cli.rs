@@ -269,6 +269,14 @@ pub struct ArchiveCmdArgs {
     pub output: PathBuf,
 }
 
+#[derive(ValueEnum, Debug, Copy, Clone)]
+pub enum SplitParentHandling {
+    /// Keep the parent directory
+    Keep,
+    /// Ignore the parent directory
+    Ignore,
+}
+
 #[derive(Debug, Args)]
 pub struct SplitCmdArgs {
     /// Input ndjson filename. Stdin is used if omitted
@@ -286,6 +294,9 @@ pub struct SplitCmdArgs {
     /// Overwrite json files if exist
     #[clap(long, action)]
     pub overwrite: bool,
+    /// How to handle the parent directory in the filename field
+    #[clap(short, long, default_value = "keep")]
+    pub parent: SplitParentHandling,
 }
 
 #[derive(Debug, Args)]
