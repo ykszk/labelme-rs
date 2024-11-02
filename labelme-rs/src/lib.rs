@@ -24,7 +24,7 @@ pub type Flags = IndexMap<String, bool>;
 pub type FlagSet = IndexSet<String>;
 pub type Point = (f32, f32);
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct Shape {
     pub label: String,
     pub points: Vec<Point>,
@@ -33,7 +33,7 @@ pub struct Shape {
     pub flags: Flags,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[allow(non_snake_case)]
 pub struct LabelMeData {
     pub version: String,
@@ -101,7 +101,7 @@ impl LabelMeDataWImage {
 }
 
 /// LabeleMeData with additional `filename` field for ndjsons
-#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
 pub struct LabelMeDataLine {
     pub content: LabelMeData,
     pub filename: String,
