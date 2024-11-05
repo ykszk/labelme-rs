@@ -16,7 +16,7 @@ Check the repository (https://github.com/ykszk/labelme-rs) for details.
 
 [workspace.dependencies]
 anyhow = "1.0.92"
-thiserror = "1.0.66"
+thiserror = "1.0.68"
 serde = { version = "1.0.214", features = ["derive"] }
 
 [profile.release]

@@ -212,10 +212,75 @@ impl ResizeParam {
     }
 }
 
-pub fn img2base64(img: &DynamicImage, format: image::ImageFormat) -> String {
+#[cfg(feature = "mozjpeg")]
+pub fn img2base64(
+    img: &DynamicImage,
+    format: image::ImageFormat,
+) -> Result<String, LabelMeDataError> {
+    if format == image::ImageFormat::Jpeg {
+        let result = std::panic::catch_unwind(|| -> std::io::Result<Vec<u8>> {
+            let img = std::borrow::Cow::Borrowed(img);
+            let (img, mut comp) = match img.color() {
+                image::ColorType::L8 => (
+                    img,
+                    mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_GRAYSCALE),
+                ),
+                image::ColorType::La8 => {
+                    let img = img.to_luma8();
+                    let img = image::DynamicImage::ImageLuma8(img);
+                    (
+                        std::borrow::Cow::Owned(img),
+                        mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_GRAYSCALE),
+                    )
+                }
+                image::ColorType::Rgb8 => {
+                    (img, mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB))
+                }
+                image::ColorType::Rgba8 => {
+                    let img = img.to_rgb8();
+                    let img = image::DynamicImage::ImageRgb8(img);
+                    (
+                        std::borrow::Cow::Owned(img),
+                        mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB),
+                    )
+                }
+                _ => panic!("Unsupported color type"),
+            };
+
+            comp.set_size(img.width() as usize, img.height() as usize);
+            let mut comp = comp.start_compress(Vec::new())?;
+
+            let pixels = img.as_bytes();
+            comp.write_scanlines(pixels)?;
+
+            let writer = comp.finish()?;
+            Ok(writer)
+        });
+        match result {
+            Ok(Ok(writer)) => return Ok(base64::engine::general_purpose::STANDARD.encode(writer)),
+            Ok(Err(e)) => return Err(e.into()),
+            Err(e) => {
+                return Err(LabelMeDataError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("{:?}", e),
+                )))
+            }
+        };
+    }
     let mut cursor = Cursor::new(Vec::new());
-    img.write_to(&mut cursor, format).unwrap();
-    base64::engine::general_purpose::STANDARD.encode(cursor.into_inner())
+    img.write_to(&mut cursor, format)
+        .map_err(|e| LabelMeDataError::from(ImageError::from(e)))?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(cursor.into_inner()))
+}
+
+#[cfg(not(feature = "mozjpeg"))]
+pub fn img2base64(
+    img: &DynamicImage,
+    format: image::ImageFormat,
+) -> Result<String, LabelMeDataError> {
+    let mut cursor = Cursor::new(Vec::new());
+    img.write_to(&mut cursor, format)?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(cursor.into_inner()))
 }
 
 impl LabelMeData {
@@ -339,7 +404,7 @@ impl LabelMeData {
             .set("xmlns:xlink", "http://www.w3.org/1999/xlink");
         let b64 = format!(
             "data:image/jpeg;base64,{}",
-            img2base64(img, image::ImageFormat::Jpeg)
+            img2base64(img, image::ImageFormat::Jpeg).unwrap()
         );
         let bg = element::Image::new()
             .set("x", 0i64)
