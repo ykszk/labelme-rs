@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 
-#[pyclass(subclass)]
+#[pyclass]
 struct Validator {
     rules: Vec<String>,
     asts: Vec<lmrs::Expr>,
@@ -83,7 +83,7 @@ impl Validator {
 }
 
 #[pymodule]
-fn lmrspy(_py: Python, m: &PyModule) -> PyResult<()> {
+fn lmrspy(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Validator>()?;
     Ok(())
 }

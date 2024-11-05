@@ -11,6 +11,6 @@ name = "lmrspy"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.20", features = ["extension-module"] }
+pyo3 = { version = "0.22.5", features = ["extension-module"] }
 labelme-rs = { path = "../labelme-rs" }
 lmrs = { path = "../lmrs" }
