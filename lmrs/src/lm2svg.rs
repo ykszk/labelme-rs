@@ -12,7 +12,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     } else {
         std::fs::read_to_string(&args.input)?
     })?;
-    let label_colors = match args.config {
+    let label_colors = match args.svg.config {
         Some(config) => load_label_colors(&config)?,
         None => LabelColorsHex::new(),
     };
@@ -25,14 +25,14 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         json_data = json_data.to_absolute_path(json_dir);
     };
     let mut data_w_image: labelme_rs::LabelMeDataWImage = json_data.try_into()?;
-    if let Some(resize) = args.resize {
+    if let Some(resize) = args.svg.resize {
         let resize_param = labelme_rs::ResizeParam::try_from(resize.as_str())?;
         data_w_image.resize(&resize_param);
     }
     let document = data_w_image.data.to_svg(
         &label_colors,
-        args.radius,
-        args.line_width,
+        args.svg.radius,
+        args.svg.line_width,
         &data_w_image.image,
     );
     labelme_rs::svg::save(args.output, &document)?;

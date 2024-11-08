@@ -89,7 +89,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             .template("[{elapsed}<{eta}] | {wide_bar} | {pos}/{len}")?,
     );
     let shared_bar = Arc::new(Mutex::new(bar));
-    let mut label_colors = match args.config {
+    let mut label_colors = match args.svg.config {
         Some(config) => load_label_colors(&config)?,
         None => LabelColorsHex::new(),
     };
@@ -147,7 +147,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     });
 
     let mut svgs: Vec<String> = Vec::with_capacity(entries.len());
-    let resize_param = match args.resize {
+    let resize_param = match args.svg.resize {
         Some(s) => Some(labelme_rs::ResizeParam::try_from(s.as_str())?),
         None => None,
     };
@@ -191,8 +191,8 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                             .join("\n");
                         let document = data_w_img.data.to_svg(
                             &label_colors,
-                            args.radius,
-                            args.line_width,
+                            args.svg.radius,
+                            args.svg.line_width,
                             &data_w_img.image,
                         );
                         let mut context = tera::Context::new();

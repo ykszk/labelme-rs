@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -46,6 +47,8 @@ pub enum Command {
     Count(CountCmdArgs),
     /// Sort shapes by point coordinates
     Sort(SortCmdArgs),
+    /// Browse labelme annotations
+    Browse(BrowseCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -139,21 +142,11 @@ pub struct HtmlCmdArgs {
     /// Output html filename
     #[clap(value_hint = ValueHint::FilePath)]
     pub output: PathBuf,
-    /// Config filename. Used for `label_colors`
-    #[clap(short, long, value_hint = ValueHint::FilePath)]
-    pub config: Option<PathBuf>,
     /// Flags filename. Used to sort flags
     #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub flags: Option<PathBuf>,
-    /// Circle radius
-    #[clap(long, default_value = "2")]
-    pub radius: usize,
-    /// Line width
-    #[clap(long, default_value = "2")]
-    pub line_width: usize,
-    /// Resize image. Specify in imagemagick's `-resize`-like format
-    #[clap(long, value_hint = ValueHint::Other)]
-    pub resize: Option<String>,
+    #[clap(flatten)]
+    pub svg: SvgConfig,
     /// HTML title
     #[clap(long, default_value = "catalog", value_hint = ValueHint::Other)]
     pub title: String,
@@ -168,15 +161,10 @@ pub struct HtmlCmdArgs {
     pub jobs: Option<usize>,
 }
 
-#[derive(Debug, Args)]
-pub struct SvgCmdArgs {
-    /// Input json filename
-    #[clap(value_hint = ValueHint::FilePath)]
-    pub input: PathBuf,
-    /// Output svg filename
-    #[clap(value_hint = ValueHint::FilePath)]
-    pub output: PathBuf,
-    /// Config filename. Used for `label_colors`
+/// SVG args shared by svg related commands
+#[derive(Debug, Clone, Args, Serialize, Deserialize)]
+pub struct SvgConfig {
+    /// Config yaml file of Labelme. Only `label_colors` is used
     #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub config: Option<PathBuf>,
     /// Circle radius
@@ -188,6 +176,29 @@ pub struct SvgCmdArgs {
     /// Resize image. Specify in imagemagick's `-resize`-like format
     #[clap(long, value_hint = ValueHint::Other)]
     pub resize: Option<String>,
+}
+
+impl Default for SvgConfig {
+    fn default() -> Self {
+        Self {
+            config: None,
+            radius: 2,
+            line_width: 2,
+            resize: None,
+        }
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct SvgCmdArgs {
+    /// Input json filename
+    #[clap(value_hint = ValueHint::FilePath)]
+    pub input: PathBuf,
+    /// Output svg filename
+    #[clap(value_hint = ValueHint::FilePath)]
+    pub output: PathBuf,
+    #[clap(flatten)]
+    pub svg: SvgConfig,
 }
 
 #[derive(Args, Debug)]
@@ -360,4 +371,43 @@ pub struct SortCmdArgs {
     /// Sort in descending order
     #[clap(short, long)]
     pub descending: bool,
+}
+
+/// Server config
+#[derive(Debug, Clone, Args, Serialize, Deserialize)]
+pub struct BrowseServerConfig {
+    /// Server address
+    #[clap(long, default_value = "127.0.0.1")]
+    pub address: String,
+    /// Server port
+    #[clap(long, default_value = "8080")]
+    pub port: u16,
+}
+
+impl Default for BrowseServerConfig {
+    fn default() -> Self {
+        Self {
+            address: "127.0.0.1".to_string(),
+            port: 8080,
+        }
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct BrowseCmdArgs {
+    /// Input
+    #[clap(value_hint = ValueHint::AnyPath)]
+    pub input: PathBuf,
+
+    /// Config file
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
+    pub config: Option<PathBuf>,
+
+    /// Open default page
+    #[clap(long)]
+    pub open: bool,
+
+    /// Generate default config in toml format
+    #[clap(long)]
+    pub default: bool,
 }

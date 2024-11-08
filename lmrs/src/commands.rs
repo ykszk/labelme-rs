@@ -8,6 +8,7 @@ extern crate log;
 use anyhow::Result;
 
 mod archive;
+mod browse;
 mod count;
 mod drop_dups;
 mod exist;
@@ -53,5 +54,6 @@ fn main() -> Result<()> {
         Command::Archive(args) => archive::cmd(args),
         Command::Count(args) => count::cmd(args),
         Command::Sort(args) => sort::cmd(args),
+        Command::Browse(args) => browse::cmd(args),
     }
 }
