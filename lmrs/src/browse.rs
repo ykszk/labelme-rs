@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{LazyLock, OnceLock},
 };
 
 use actix_web::{get, http::StatusCode, web, App, HttpResponse, HttpServer};
@@ -13,11 +13,31 @@ use serde::{Deserialize, Serialize};
 struct AppState {
     svg: SvgConfig,
     dir: PathBuf,
-    id_list: Arc<Mutex<Option<Vec<String>>>>,
     label_colors: LabelColorsHex,
+    templates: tera::Tera,
 }
 
-fn _get_svg(app_state: web::Data<AppState>, id: &String) -> Result<String> {
+static PARENT_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+static ID_LIST: LazyLock<Vec<String>> = LazyLock::new(|| {
+    let dir = PARENT_DIR.get().unwrap(); // PARENT_DIR is initialized in actix_main
+    let entries = std::fs::read_dir(dir)
+        .with_context(|| format!("Failed to read directory: {:?}", dir))
+        .unwrap();
+    let mut v_id_list = Vec::new();
+    for entry in entries {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.extension().unwrap_or_default() == "json" {
+            let id = path.file_stem().unwrap().to_str().unwrap();
+            v_id_list.push(id.to_string());
+        }
+    }
+    v_id_list.sort();
+    v_id_list
+});
+
+fn _get_svg(app_state: &web::Data<AppState>, id: &String) -> Result<String> {
     let path = app_state.dir.join(id).with_extension("json");
     let mut data_image = LabelMeDataWImage::try_from(path.as_path())?;
     if let Some(resize) = app_state.svg.resize.as_ref() {
@@ -37,42 +57,90 @@ fn _get_svg(app_state: web::Data<AppState>, id: &String) -> Result<String> {
 #[get("/svg/{id}")]
 async fn get_svg(app_state: web::Data<AppState>, path: web::Path<String>) -> HttpResponse {
     let id = path.into_inner();
-    let svg = _get_svg(app_state, &id).with_context(|| format!("Failed to get svg for {}", id));
+    let svg = _get_svg(&app_state, &id).with_context(|| format!("Failed to get svg for {}", id));
     match svg {
         Ok(svg) => HttpResponse::build(StatusCode::OK)
             .content_type("image/svg+xml")
             .body(svg),
         Err(e) => HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
             .content_type("text/plain")
-            .body(format!("{}", e)),
+            .body(
+                e.chain()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .to_string(),
+            ),
+    }
+}
+
+fn _browse_id(app_state: web::Data<AppState>, id: &String, no_nav: bool) -> Result<String> {
+    let svg = _get_svg(&app_state, id)?;
+    let mut context = tera::Context::new();
+    context.insert("title", &format!("{} - lmrs browse", id));
+    context.insert("svg", &svg);
+    let pos = (*ID_LIST).binary_search(id);
+    if !no_nav {
+        if let Ok(pos) = pos {
+            if pos > 0 {
+                context.insert("prev_id", &(*ID_LIST)[pos - 1]);
+            }
+            if pos < (*ID_LIST).len() - 1 {
+                context.insert("next_id", &(*ID_LIST)[pos + 1]);
+            }
+        }
+    }
+
+    let html = app_state
+        .templates
+        .render("browse_id.jinja", &context)
+        .context("Failed to render template")?;
+    Ok(html)
+}
+
+#[derive(Deserialize)]
+struct BrowseIdQuery {
+    no_nav: Option<bool>,
+}
+
+#[get("/browse/{id}")]
+async fn browse_id(
+    query: web::Query<BrowseIdQuery>,
+    app_state: web::Data<AppState>,
+    path: web::Path<String>,
+) -> HttpResponse {
+    let id = path.into_inner();
+    let no_nav: bool = query.no_nav.unwrap_or_default();
+    let html = _browse_id(app_state, &id, no_nav)
+        .with_context(|| format!("Failed to get html for {}", id));
+    match html {
+        Ok(html) => HttpResponse::build(StatusCode::OK)
+            .content_type("text/html")
+            .body(html),
+        Err(e) => HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+            .content_type("text/plain")
+            .body(
+                e.chain()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .to_string(),
+            ),
     }
 }
 
 #[get("/")]
-async fn index(app_state: web::Data<AppState>) -> HttpResponse {
-    let mut id_list = app_state.id_list.lock().unwrap();
-    if id_list.is_none() {
-        let entries = std::fs::read_dir(&app_state.dir)
-            .with_context(|| format!("Failed to read directory: {:?}", app_state.dir))
-            .unwrap();
-        let mut v_id_list = Vec::new();
-        for entry in entries {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.extension().unwrap_or_default() == "json" {
-                let id = path.file_stem().unwrap().to_str().unwrap();
-                v_id_list.push(id.to_string());
-            }
-        }
-        v_id_list.sort();
-        *id_list = Some(v_id_list);
-    }
+async fn index(_app_state: web::Data<AppState>) -> HttpResponse {
+    let id_list = &*ID_LIST;
 
     let list = id_list
-        .as_ref()
-        .unwrap()
         .iter()
-        .map(|id| format!("<li><a href=\"/svg/{0}\">{0}</a></li>", id))
+        .map(|id| {
+            format!(
+                "<head><title>lmrs browse</title></head><li><a href=\"/browse/{0}\">{0}</a></li>",
+                id
+            )
+        })
         .collect::<Vec<String>>()
         .join("\n");
     let body = format!("<ul>{}</ul>", list);
@@ -91,8 +159,9 @@ async fn actix_main(
     let server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(app_state.clone()))
-            .service(get_svg)
             .service(index)
+            .service(browse_id)
+            .service(get_svg)
     })
     .bind((config.server.address, config.server.port))?
     .run();
@@ -108,12 +177,25 @@ async fn actix_main(
 }
 
 /// Config
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Server address
     pub server: BrowseServerConfig,
     /// SVG
     pub svg: SvgConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        let svg = SvgConfig {
+            resize: Some("512x512".to_string()),
+            ..Default::default()
+        };
+        Self {
+            svg,
+            server: BrowseServerConfig::default(),
+        }
+    }
 }
 
 fn load_config(config_dir: &Path) -> Result<Option<Config>> {
@@ -196,7 +278,7 @@ pub fn cmd(mut args: CmdArgs) -> Result<()> {
         if args.input.extension().unwrap_or_default() == "json" {
             let stem = args.input.file_stem().unwrap().to_str().unwrap();
             format!(
-                "http://{}:{}/svg/{}",
+                "http://{}:{}/browse/{}?no_nav=true",
                 config.server.address, config.server.port, stem
             )
         } else {
@@ -207,15 +289,31 @@ pub fn cmd(mut args: CmdArgs) -> Result<()> {
     };
     println!("Open {}", default_url);
 
+    let templates = get_templates();
+
+    PARENT_DIR.get_or_init(|| dir.clone());
+
     let app_state = AppState {
         svg: config.svg.clone(),
         dir,
         label_colors,
-        id_list: Arc::new(Mutex::new(None)),
+        templates,
     };
 
     actix_main(config, default_url, args, app_state).context("Failed to start actix server")?;
     Ok(())
+}
+
+fn get_templates() -> tera::Tera {
+    let mut templates = tera::Tera::default();
+    templates.autoescape_on(vec![]);
+    templates
+        .add_raw_templates(vec![(
+            "browse_id.jinja",
+            include_str!("templates/browse_id.jinja"),
+        )])
+        .unwrap();
+    templates
 }
 
 #[cfg(test)]
@@ -224,17 +322,23 @@ mod tests {
 
     use super::*;
 
-    #[actix_web::test]
-    async fn test_index_get() {
+    fn init_app_state() -> AppState {
         let config = Config::default();
         let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/data");
+        PARENT_DIR.get_or_init(|| dir.clone());
+        let templates = get_templates();
 
-        let app_state = AppState {
+        AppState {
             svg: config.svg.clone(),
             dir,
-            id_list: Arc::new(Mutex::new(None)),
             label_colors: LabelColorsHex::new(),
-        };
+            templates,
+        }
+    }
+
+    #[actix_web::test]
+    async fn test_index_get() {
+        let app_state = init_app_state();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(app_state.clone()))
@@ -250,15 +354,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_svg_get() {
-        let config = Config::default();
-        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/data");
-
-        let app_state = AppState {
-            svg: config.svg.clone(),
-            dir,
-            id_list: Arc::new(Mutex::new(None)),
-            label_colors: LabelColorsHex::new(),
-        };
+        let app_state = init_app_state();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(app_state.clone()))

@@ -154,6 +154,24 @@ lmrs exist labelmes.ndjson | jq -cr ".content.imagePath"
 ## Sort
 Sort shapes by point coordinatess
 
+## Browse
+Browse annotations
+
+Start browser:
+```console
+lmrs browse <json file or directory> --open
+```
+Specifying:
+- json file will open the file
+- directory will open index page linking to each annotation
+
+Generate default config
+```console
+lmrs browser - --default
+```
+
+Add `--address 0.0.0.0` option to allow access from other hosts.
+
 # Python binding
 Install:
 
