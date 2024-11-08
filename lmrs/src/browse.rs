@@ -200,10 +200,10 @@ pub fn cmd(mut args: CmdArgs) -> Result<()> {
                 config.server.address, config.server.port, stem
             )
         } else {
-            unimplemented!("Input file type not implemented yet");
+            panic!("Invalid input file: {:?}", args.input);
         }
     } else {
-        unimplemented!("Input directory not implemented yet");
+        format!("http://{}:{}", config.server.address, config.server.port)
     };
     println!("Open {}", default_url);
 
@@ -216,4 +216,57 @@ pub fn cmd(mut args: CmdArgs) -> Result<()> {
 
     actix_main(config, default_url, args, app_state).context("Failed to start actix server")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use actix_web::{http::header::ContentType, test, App};
+
+    use super::*;
+
+    #[actix_web::test]
+    async fn test_index_get() {
+        let config = Config::default();
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/data");
+
+        let app_state = AppState {
+            svg: config.svg.clone(),
+            dir,
+            id_list: Arc::new(Mutex::new(None)),
+            label_colors: LabelColorsHex::new(),
+        };
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(app_state.clone()))
+                .service(index),
+        )
+        .await;
+        let req = test::TestRequest::default()
+            .insert_header(ContentType::plaintext())
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_svg_get() {
+        let config = Config::default();
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/data");
+
+        let app_state = AppState {
+            svg: config.svg.clone(),
+            dir,
+            id_list: Arc::new(Mutex::new(None)),
+            label_colors: LabelColorsHex::new(),
+        };
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(app_state.clone()))
+                .service(get_svg),
+        )
+        .await;
+        let req = test::TestRequest::get().uri("/svg/Mandrill").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
 }

@@ -395,7 +395,7 @@ impl Default for BrowseServerConfig {
 
 #[derive(Debug, Args)]
 pub struct BrowseCmdArgs {
-    /// Input
+    /// Input file or directory
     #[clap(value_hint = ValueHint::AnyPath)]
     pub input: PathBuf,
 
