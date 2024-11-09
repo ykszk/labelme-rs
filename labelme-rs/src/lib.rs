@@ -22,7 +22,7 @@ extern crate lazy_static;
 
 pub type Flags = IndexMap<String, bool>;
 pub type FlagSet = IndexSet<String>;
-pub type Point = (f32, f32);
+pub type Point = (f64, f64);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct Shape {
@@ -330,8 +330,8 @@ impl LabelMeData {
     pub fn scale(&mut self, scale: f64) {
         for shape in &mut self.shapes {
             for p in &mut shape.points {
-                p.0 = (scale * p.0 as f64) as f32;
-                p.1 = (scale * p.1 as f64) as f32;
+                p.0 *= scale;
+                p.1 *= scale;
             }
         }
         self.imageWidth = (self.imageWidth as f64 * scale) as _;
@@ -343,8 +343,8 @@ impl LabelMeData {
     pub fn shift(&mut self, tx: f64, ty: f64) {
         for shape in &mut self.shapes {
             for p in &mut shape.points {
-                p.0 = (p.0 as f64 + tx) as f32;
-                p.1 = (p.1 as f64 + ty) as f32;
+                p.0 += tx;
+                p.1 += ty;
             }
         }
     }
