@@ -5,6 +5,7 @@ use std::{
 
 use actix_web::{get, http::StatusCode, web, App, HttpResponse, HttpServer};
 use anyhow::{Context, Result};
+use clap::{CommandFactory, FromArgMatches};
 use labelme_rs::{load_label_colors, LabelColorsHex, LabelMeDataWImage};
 use lmrs::cli::{BrowseCmdArgs as CmdArgs, BrowseServerConfig, SvgConfig};
 use serde::{Deserialize, Serialize};
@@ -152,19 +153,25 @@ async fn index(_app_state: web::Data<AppState>) -> HttpResponse {
 #[actix_web::main]
 async fn actix_main(
     config: Config,
-    default_url: String,
+    default_url_path: String,
     args: CmdArgs,
     app_state: AppState,
 ) -> std::io::Result<()> {
-    let server = HttpServer::new(move || {
+    let http_server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(app_state.clone()))
             .service(index)
             .service(browse_id)
             .service(get_svg)
     })
-    .bind((config.server.address, config.server.port))?
-    .run();
+    .workers(1)
+    .bind((config.server.address, config.server.port))?;
+    let addr = *http_server.addrs().first().unwrap();
+    let server = http_server.run();
+
+    let default_url = format!("http://{}:{}{}", addr.ip(), addr.port(), default_url_path);
+
+    println!("Open {}", default_url);
 
     if args.open {
         let result = open::that(default_url);
@@ -249,13 +256,37 @@ pub fn cmd(mut args: CmdArgs) -> Result<()> {
         println!("{}", toml);
         return Ok(());
     }
-    let config: Config = if let Some(path) = args.config.as_ref() {
+
+    // Initialize config from file
+    let config: Config = if let Some(path) = args.base_config.as_ref() {
         toml::from_str(&std::fs::read_to_string(path)?)?
     } else {
         load_config_from_config_dir()
             .or_else(load_config_next_to_executable)
             .unwrap_or_default()
     };
+
+    // Update config from arguments
+    args.server = config.server.clone();
+    args.svg = config.svg.clone();
+
+    // Cut-off arguments before `browse`
+    let command_args = std::env::args()
+        .skip_while(|arg| arg != "browse")
+        .collect::<Vec<_>>();
+
+    let matches = <CmdArgs as CommandFactory>::command().get_matches_from(command_args);
+
+    args.update_from_arg_matches(&matches)?;
+
+    let config = Config {
+        server: args.server.clone(),
+        svg: args.svg.clone(),
+    };
+
+    if !args.input.exists() {
+        panic!("Input file does not exist: {:?}", args.input);
+    }
 
     if args.input.extension().unwrap_or_default() == "jpg" {
         // Find adjacent json file
@@ -277,17 +308,13 @@ pub fn cmd(mut args: CmdArgs) -> Result<()> {
     let default_url = if args.input.is_file() {
         if args.input.extension().unwrap_or_default() == "json" {
             let stem = args.input.file_stem().unwrap().to_str().unwrap();
-            format!(
-                "http://{}:{}/browse/{}?no_nav=true",
-                config.server.address, config.server.port, stem
-            )
+            format!("/browse/{}?no_nav=true", stem)
         } else {
             panic!("Invalid input file: {:?}", args.input);
         }
     } else {
-        format!("http://{}:{}", config.server.address, config.server.port)
+        "".to_string()
     };
-    println!("Open {}", default_url);
 
     let templates = get_templates();
 
@@ -353,15 +380,22 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_svg_get() {
+    async fn test_gets() {
         let app_state = init_app_state();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(app_state.clone()))
-                .service(get_svg),
+                .service(get_svg)
+                .service(browse_id),
         )
         .await;
         let req = test::TestRequest::get().uri("/svg/Mandrill").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        let req = test::TestRequest::get()
+            .uri("/browse/Mandrill")
+            .to_request();
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
     }

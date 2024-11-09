@@ -393,15 +393,15 @@ impl Default for BrowseServerConfig {
     }
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Parser)]
 pub struct BrowseCmdArgs {
     /// Input file or directory
     #[clap(value_hint = ValueHint::AnyPath)]
     pub input: PathBuf,
 
     /// Config file
-    #[clap(short, long, value_hint = ValueHint::FilePath)]
-    pub config: Option<PathBuf>,
+    #[clap(long, value_hint = ValueHint::FilePath)]
+    pub base_config: Option<PathBuf>,
 
     /// Open default page
     #[clap(long)]
@@ -410,4 +410,12 @@ pub struct BrowseCmdArgs {
     /// Generate default config in toml format
     #[clap(long)]
     pub default: bool,
+
+    /// Server config
+    #[clap(flatten)]
+    pub server: BrowseServerConfig,
+
+    /// SVG config
+    #[clap(flatten)]
+    pub svg: SvgConfig,
 }

@@ -165,12 +165,13 @@ Specifying:
 - json file will open the file
 - directory will open index page linking to each annotation
 
+- Add `--address 0.0.0.0` option to allow access from other hosts.
+- Add `--port 0` to use a new port assigned by OS.
+
 Generate default config
 ```console
 lmrs browser - --default
 ```
-
-Add `--address 0.0.0.0` option to allow access from other hosts.
 
 # Python binding
 Install:
