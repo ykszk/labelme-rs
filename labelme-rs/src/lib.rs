@@ -61,18 +61,34 @@ pub struct LabelMeDataWImage {
     pub image: DynamicImage,
 }
 
+impl LabelMeDataWImage {
+    /// Load LabelMeData with data.imagePath resolved by `json_path`
+    ///
+    /// Arguments:
+    /// - `data`: LabelMeData
+    /// - `json_path`: Path where `data`` was loaded from
+    pub fn try_from_data_and_path(
+        data: LabelMeData,
+        json_path: &Path,
+    ) -> Result<Self, LabelMeDataError> {
+        let mut data = data;
+        data.imagePath = data.imagePath.replace('\\', "/");
+        if let Some(parent) = json_path.parent() {
+            let path = parent.canonicalize()?;
+            data = data.to_absolute_path(path.as_path());
+        }
+        let data = LabelMeDataWImage::try_from(data)?;
+        Ok(data)
+    }
+}
+
 impl TryFrom<&Path> for LabelMeDataWImage {
     type Error = LabelMeDataError;
 
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         let s = std::fs::read_to_string(path)?;
-        let mut data: LabelMeData = s.try_into()?;
-        data.imagePath = data.imagePath.replace('\\', "/");
-        if let Some(parent) = path.parent() {
-            let path = parent.canonicalize()?;
-            data = data.to_absolute_path(path.as_path());
-        }
-        let data = LabelMeDataWImage::try_from(data)?;
+        let data: LabelMeData = s.try_into()?;
+        let data = LabelMeDataWImage::try_from_data_and_path(data, path)?;
         Ok(data)
     }
 }
@@ -91,6 +107,7 @@ impl LabelMeDataWImage {
         Self { data, image }
     }
 
+    /// Resize image and data
     pub fn resize(&mut self, param: &ResizeParam) {
         let scale = param.scale(self.image.width(), self.image.height());
         if scale > 0.0 && scale != 1.0 {
