@@ -16,6 +16,7 @@ path = "src/lib.rs"
 
 [features]
 dicom = ["labelme-rs/dicom"]
+gdcm = ["dicom", "labelme-rs/gdcm"]
 
 [dependencies]
 labelme-rs = { path = "../labelme-rs" }

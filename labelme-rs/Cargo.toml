@@ -8,6 +8,7 @@ description.workspace = true
 [features]
 default = ["mozjpeg"]
 dicom = ["dep:dicom-object", "dep:dicom-pixeldata", "dep:dicom-dictionary-std"]
+gdcm = ["dicom", "dicom-pixeldata/gdcm"]
 mozjpeg = ["dep:mozjpeg"]
 
 [dependencies]
@@ -28,7 +29,6 @@ dicom-object = { version = "0.8.0", optional = true }
 dicom-dictionary-std = { version = "0.8.0", optional = true }
 dicom-pixeldata = { version = "0.8.0", optional = true, default-features = false, features = [
     "image",
-    "gdcm",
 ] }
 mozjpeg = { version = "0.10.10", optional = true }
 
