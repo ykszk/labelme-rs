@@ -680,7 +680,7 @@ pub fn load_image(path: &Path) -> Result<DynamicImage, ImageError> {
     Ok(image::open(path)?)
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Color(u8, u8, u8);
 
 impl Color {
@@ -695,7 +695,7 @@ impl From<Color> for String {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LabelColorsInConfig {
     label_colors: LabelColors,
 }
@@ -713,7 +713,7 @@ pub static NEW_TAB10: [&str; 10] = [
 ];
 pub static RGBCMY: [&str; 6] = ["red", "green", "blue", "cyan", "magenta", "yellow"];
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ColorCycler {
     i: usize,
     palette: Vec<&'static str>,
