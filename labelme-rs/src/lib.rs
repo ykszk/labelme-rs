@@ -71,12 +71,7 @@ impl LabelMeDataWImage {
         data: LabelMeData,
         json_path: &Path,
     ) -> Result<Self, LabelMeDataError> {
-        let mut data = data;
-        data.imagePath = data.imagePath.replace('\\', "/");
-        if let Some(parent) = json_path.parent() {
-            let path = parent.canonicalize()?;
-            data = data.to_absolute_path(path.as_path());
-        }
+        let data = data.reset_image_path(json_path)?;
         let data = LabelMeDataWImage::try_from(data)?;
         Ok(data)
     }
@@ -88,13 +83,13 @@ impl TryFrom<&Path> for LabelMeDataWImage {
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         let s = std::fs::read_to_string(path)?;
         let data: LabelMeData = s.try_into()?;
-        let data = LabelMeDataWImage::try_from_data_and_path(data, path)?;
+        let data = data.reset_image_path(path)?.try_into()?;
         Ok(data)
     }
 }
 
 impl TryFrom<LabelMeData> for LabelMeDataWImage {
-    type Error = LabelMeDataError;
+    type Error = ImageError;
 
     fn try_from(data: LabelMeData) -> Result<Self, Self::Error> {
         let image = load_image(Path::new(&data.imagePath))?;
@@ -366,12 +361,23 @@ impl LabelMeData {
         }
     }
 
+    /// Reset `imagePath` based on `json_path`
+    ///
+    /// Arguments:
+    /// - `json_path`: Path where `self` was loaded from
+    pub fn reset_image_path(self, json_path: &Path) -> std::io::Result<Self> {
+        let parent = json_path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or_else(|| std::path::Path::new("."));
+        let path = parent.canonicalize()?;
+        let data = self.to_absolute_path(path.as_path());
+        Ok(data)
+    }
+
     /// Update `imagePath` to absolute path if it is relative
     pub fn to_absolute_path(mut self, canonical_json_dir: &Path) -> Self {
-        #[cfg(not(target_os = "windows"))]
-        {
-            self.imagePath = self.imagePath.replace('\\', "/");
-        }
+        self.imagePath = self.imagePath.replace('\\', "/");
         let image_path = Path::new(&self.imagePath);
         if image_path.is_relative() {
             self.imagePath = canonical_json_dir
