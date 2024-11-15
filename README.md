@@ -151,6 +151,13 @@ Print missing image file:
 lmrs exist labelmes.ndjson | jq -cr ".content.imagePath"
 ```
 
+## archive
+Archive jsons and associated image files as tar
+
+```console
+lmrs archive json_directory | zstd > archived_json_and_image.tar.zst
+```
+
 ## Sort
 Sort shapes by point coordinatess
 

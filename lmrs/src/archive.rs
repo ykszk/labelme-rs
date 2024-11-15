@@ -1,16 +1,16 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result};
 
-use labelme_rs::serde_json;
+use labelme_rs::{serde_json, LabelMeData, LabelMeDataLine};
 use lmrs::cli::ArchiveCmdArgs as CmdArgs;
 use tar::{Builder, Header};
 
-fn add_image<W: std::io::Write>(data: &lmrs::LabelMeData, ar: &mut Builder<W>) -> Result<()> {
+fn add_image<W: std::io::Write>(data: &LabelMeData, ar: &mut Builder<W>) -> Result<()> {
     let image_path: PathBuf = data.imagePath.clone().into();
     let mut image_file = File::open(&image_path)
         .with_context(|| format!("Failed to open image file: {:?}", image_path))?;
@@ -19,27 +19,47 @@ fn add_image<W: std::io::Write>(data: &lmrs::LabelMeData, ar: &mut Builder<W>) -
     Ok(())
 }
 
+fn add_data<W: std::io::Write, P: AsRef<Path>>(
+    path: P,
+    data: &mut LabelMeData,
+    ar: &mut Builder<W>,
+) -> Result<()> {
+    data.imagePath = Path::new(&data.imagePath)
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    let json = serde_json::to_string(data)?;
+    let mut header = Header::new_gnu();
+    header.set_size(json.len() as u64);
+    header.set_mode(0o644);
+    ar.append_data(&mut header, path, json.as_bytes())?;
+    Ok(())
+}
+
 fn archive<W: std::io::Write>(args: CmdArgs, ar: Builder<W>) -> Result<()> {
     let mut ar = ar;
     if args.input.is_file() || args.input.as_os_str() == "-" {
         // process ndjson file
-        let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
-            Box::new(BufReader::new(std::io::stdin()))
+        let (reader, json_dir): (Box<dyn BufRead>, _) = if args.input.as_os_str() == "-" {
+            let reader = Box::new(BufReader::new(std::io::stdin()));
+            let json_dir = std::env::current_dir()?.canonicalize()?;
+            (reader, json_dir)
         } else {
-            Box::new(BufReader::new(File::open(&args.input)?))
+            let reader = Box::new(BufReader::new(File::open(&args.input)?));
+            let json_dir = args.input.parent().unwrap().canonicalize()?;
+            (reader, json_dir)
         };
-        let json_dir = std::env::current_dir()?.canonicalize()?;
 
         for line in reader.lines() {
             let line = line?;
-            let data_line: labelme_rs::LabelMeDataLine = serde_json::from_str(&line)?;
+            let data_line: LabelMeDataLine = serde_json::from_str(&line)?;
 
-            let data = data_line.content.to_absolute_path(&json_dir);
-            let json = serde_json::to_string(&data)?;
-            let mut header = Header::new_gnu();
-            header.set_size(json.len() as u64);
-            ar.append_data(&mut header, data_line.filename, json.as_bytes())?;
+            let mut data = data_line.content.to_absolute_path(&json_dir);
+            let path = Path::new(&data_line.filename).file_name().unwrap();
             add_image(&data, &mut ar)?;
+            add_data(path, &mut data, &mut ar)?;
         }
     } else {
         let entries = glob::glob(
@@ -53,10 +73,9 @@ fn archive<W: std::io::Write>(args: CmdArgs, ar: Builder<W>) -> Result<()> {
 
         for entry in entries {
             let input = entry?;
-            ar.append_path_with_name(&input, input.file_name().unwrap().to_str().unwrap())?;
-            let data =
-                labelme_rs::LabelMeData::try_from(input.as_path())?.to_absolute_path(&json_dir);
+            let mut data = LabelMeData::try_from(input.as_path())?.to_absolute_path(&json_dir);
             add_image(&data, &mut ar)?;
+            add_data(input.file_name().unwrap(), &mut data, &mut ar)?;
         }
     }
     ar.finish()?;
@@ -87,8 +106,7 @@ mod tests {
             input: data_dir.clone(),
             output: output.path().into(),
         };
-        let result = cmd(args);
-        assert!(result.is_ok());
+        cmd(args)?;
         let file = File::open(output.path())?;
         let mut a = tar::Archive::new(file);
 
@@ -105,7 +123,14 @@ mod tests {
             let _ = File::open(data_dir.join(file.header().path().unwrap()).as_path())
                 .unwrap()
                 .read_to_end(&mut original)?;
-            assert_eq!(unarchived, original)
+            if file.path().unwrap().to_str().unwrap().ends_with(".json") {
+                assert_eq!(
+                    serde_json::from_slice::<LabelMeData>(&unarchived).unwrap(),
+                    serde_json::from_slice::<LabelMeData>(&original).unwrap()
+                );
+            } else {
+                assert_eq!(unarchived, original)
+            }
         }
 
         remove_file(output.path())?;
