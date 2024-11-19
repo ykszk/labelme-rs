@@ -25,6 +25,62 @@
             "group_id": null,
             "shape_type": "point",
             "flags": {}
+        },
+        {
+            "label": "m",
+            "points": [
+                [
+                    3,
+                    4
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "point",
+            "flags": {}
+        },
+        {
+            "label": "m",
+            "points": [
+                [
+                    1,
+                    2
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "point",
+            "flags": {}
+        },
+        {
+            "label": "l",
+            "points": [
+                [
+                    1,
+                    4
+                ],
+                [
+                    3,
+                    2
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "line",
+            "flags": {}
+        },
+        {
+            "label": "l",
+            "points": [
+                [
+                    3,
+                    2
+                ],
+                [
+                    1,
+                    4
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "line",
+            "flags": {}
         }
     ],
     "imagePath": "img1.jpg",

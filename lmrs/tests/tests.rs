@@ -188,5 +188,21 @@ fn test_sort() -> Result<()> {
         .output()?;
     insta::assert_snapshot!("sort-by_x-descending", str::from_utf8(&output.stdout)?);
 
+    let output = Command::new(bin)
+        .arg("sort")
+        .arg("sort.json")
+        .arg("--shapes")
+        .arg("line")
+        .output()?;
+    insta::assert_snapshot!("sort-only-line", str::from_utf8(&output.stdout)?);
+
+    let output = Command::new(bin)
+        .arg("sort")
+        .arg("sort.json")
+        .arg("--labels")
+        .arg("m")
+        .output()?;
+    insta::assert_snapshot!("sort-only-m", str::from_utf8(&output.stdout)?);
+
     Ok(())
 }

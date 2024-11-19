@@ -14,15 +14,15 @@ struct ShapeMap {
 
 impl From<LabelMeData> for ShapeMap {
     fn from(data: LabelMeData) -> Self {
-        let mut shapes = IndexMap::new();
+        let mut shapes: IndexMap<String, IndexMap<String, Vec<Shape>>> = IndexMap::new();
         for shape in data.shapes {
             let shape_label = shape.label.clone();
             let shape_type = shape.shape_type.clone();
             shapes
                 .entry(shape_type)
-                .or_insert_with(IndexMap::new)
+                .or_default()
                 .entry(shape_label)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(shape);
         }
         Self { shapes }
@@ -31,9 +31,25 @@ impl From<LabelMeData> for ShapeMap {
 
 impl ShapeMap {
     /// Sorts the shapes by point coordinates
-    pub fn sort(&mut self, by_x: bool, descending: bool) {
-        for shapes in self.shapes.values_mut() {
-            for shapes in shapes.values_mut() {
+    pub fn sort(
+        &mut self,
+        by_x: bool,
+        descending: bool,
+        shapes_to_sort: Option<Vec<String>>,
+        labels_to_sort: Option<Vec<String>>,
+    ) {
+        for (shape_name, shapes) in self.shapes.iter_mut() {
+            if let Some(labels) = shapes_to_sort.as_ref() {
+                if !labels.contains(shape_name) {
+                    continue;
+                }
+            }
+            for (label, shapes) in shapes.iter_mut() {
+                if let Some(shapes) = labels_to_sort.as_ref() {
+                    if !shapes.contains(label) {
+                        continue;
+                    }
+                }
                 shapes.sort_by(|a, b| {
                     let a0 = a.points.first().unwrap();
                     let b0 = b.points.first().unwrap();
@@ -54,9 +70,15 @@ impl ShapeMap {
     }
 }
 
-fn process_data(data: LabelMeData, sort_by_x: bool, descending: bool) -> LabelMeData {
+fn process_data(
+    data: LabelMeData,
+    sort_by_x: bool,
+    descending: bool,
+    shapes_to_sort: Option<Vec<String>>,
+    labels_to_sort: Option<Vec<String>>,
+) -> LabelMeData {
     let mut shape_map = ShapeMap::from(data.clone());
-    shape_map.sort(sort_by_x, descending);
+    shape_map.sort(sort_by_x, descending, shapes_to_sort, labels_to_sort);
 
     LabelMeData {
         shapes: shape_map
@@ -72,7 +94,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     if args.input.extension().is_some_and(|ext| ext == "json") {
         let reader = BufReader::new(File::open(&args.input)?);
         let data: LabelMeData = serde_json::from_reader(reader)?;
-        let sorted_data = process_data(data, args.by_x, args.descending);
+        let sorted_data = process_data(data, args.by_x, args.descending, args.shapes, args.labels);
         println!("{}", serde_json::to_string_pretty(&sorted_data)?);
     } else if args.input.as_os_str() == "-"
         || args
@@ -89,7 +111,13 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         for line in reader.lines() {
             let line = line?;
             let lm_data_line = LabelMeDataLine::try_from(line.as_str())?;
-            let sorted_data = process_data(lm_data_line.content, args.by_x, args.descending);
+            let sorted_data = process_data(
+                lm_data_line.content,
+                args.by_x,
+                args.descending,
+                args.shapes.clone(),
+                args.labels.clone(),
+            );
             let sorted_data_line = LabelMeDataLine {
                 content: sorted_data,
                 ..lm_data_line

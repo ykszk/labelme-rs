@@ -364,13 +364,21 @@ pub struct SortCmdArgs {
     /// Input json or jsonl/ndjson filename.
     pub input: PathBuf,
 
-    /// Sort by x coordinate
+    /// Sort by x coordinate instead of y
     #[clap(short = 'x', long)]
     pub by_x: bool,
 
-    /// Sort in descending order
+    /// Sort in descending order instead of ascending
     #[clap(short, long)]
     pub descending: bool,
+
+    /// Sort only specified shapes
+    #[clap(short, long, value_hint = ValueHint::Other)]
+    pub shapes: Option<Vec<String>>,
+
+    /// Sort only specified labels
+    #[clap(short, long, value_hint = ValueHint::Other)]
+    pub labels: Option<Vec<String>>,
 }
 
 /// Server config

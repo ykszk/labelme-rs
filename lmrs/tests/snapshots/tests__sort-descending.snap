@@ -1,5 +1,6 @@
 ---
 source: lmrs/tests/tests.rs
+assertion_line: 174
 expression: "str::from_utf8(&output.stdout)?"
 ---
 {
@@ -28,6 +29,62 @@ expression: "str::from_utf8(&output.stdout)?"
       ],
       "group_id": null,
       "shape_type": "point",
+      "flags": {}
+    },
+    {
+      "label": "m",
+      "points": [
+        [
+          3.0,
+          4.0
+        ]
+      ],
+      "group_id": null,
+      "shape_type": "point",
+      "flags": {}
+    },
+    {
+      "label": "m",
+      "points": [
+        [
+          1.0,
+          2.0
+        ]
+      ],
+      "group_id": null,
+      "shape_type": "point",
+      "flags": {}
+    },
+    {
+      "label": "l",
+      "points": [
+        [
+          1.0,
+          4.0
+        ],
+        [
+          3.0,
+          2.0
+        ]
+      ],
+      "group_id": null,
+      "shape_type": "line",
+      "flags": {}
+    },
+    {
+      "label": "l",
+      "points": [
+        [
+          3.0,
+          2.0
+        ],
+        [
+          1.0,
+          4.0
+        ]
+      ],
+      "group_id": null,
+      "shape_type": "line",
       "flags": {}
     }
   ],
