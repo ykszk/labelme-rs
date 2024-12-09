@@ -188,6 +188,7 @@ fn test_sort() -> Result<()> {
         .output()?;
     insta::assert_snapshot!("sort-by_x-descending", str::from_utf8(&output.stdout)?);
 
+    // test shape and label options
     let output = Command::new(bin)
         .arg("sort")
         .arg("sort.json")
@@ -203,6 +204,25 @@ fn test_sort() -> Result<()> {
         .arg("m")
         .output()?;
     insta::assert_snapshot!("sort-only-m", str::from_utf8(&output.stdout)?);
+
+    // test invert options
+    let output = Command::new(bin)
+        .arg("sort")
+        .arg("sort.json")
+        .arg("--shapes")
+        .arg("line")
+        .arg("--inv-shape")
+        .output()?;
+    insta::assert_snapshot!("sort-inv-line", str::from_utf8(&output.stdout)?);
+
+    let output = Command::new(bin)
+        .arg("sort")
+        .arg("sort.json")
+        .arg("--labels")
+        .arg("m")
+        .arg("--inv-label")
+        .output()?;
+    insta::assert_snapshot!("sort-inv-m", str::from_utf8(&output.stdout)?);
 
     Ok(())
 }

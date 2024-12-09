@@ -35,18 +35,28 @@ impl ShapeMap {
         &mut self,
         by_x: bool,
         descending: bool,
-        shapes_to_sort: Option<Vec<String>>,
-        labels_to_sort: Option<Vec<String>>,
+        shapes_to_sort: &Option<Vec<String>>,
+        invert_shapes: bool,
+        labels_to_sort: &Option<Vec<String>>,
+        invert_labels: bool,
     ) {
         for (shape_name, shapes) in self.shapes.iter_mut() {
-            if let Some(labels) = shapes_to_sort.as_ref() {
-                if !labels.contains(shape_name) {
+            if let Some(labels) = shapes_to_sort {
+                if invert_shapes {
+                    if labels.contains(shape_name) {
+                        continue;
+                    }
+                } else if !labels.contains(shape_name) {
                     continue;
                 }
             }
             for (label, shapes) in shapes.iter_mut() {
-                if let Some(shapes) = labels_to_sort.as_ref() {
-                    if !shapes.contains(label) {
+                if let Some(shapes) = labels_to_sort {
+                    if invert_labels {
+                        if shapes.contains(label) {
+                            continue;
+                        }
+                    } else if !shapes.contains(label) {
                         continue;
                     }
                 }
@@ -74,11 +84,20 @@ fn process_data(
     data: LabelMeData,
     sort_by_x: bool,
     descending: bool,
-    shapes_to_sort: Option<Vec<String>>,
-    labels_to_sort: Option<Vec<String>>,
+    shapes_to_sort: &Option<Vec<String>>,
+    invert_shapes: bool,
+    labels_to_sort: &Option<Vec<String>>,
+    invert_labels: bool,
 ) -> LabelMeData {
     let mut shape_map = ShapeMap::from(data.clone());
-    shape_map.sort(sort_by_x, descending, shapes_to_sort, labels_to_sort);
+    shape_map.sort(
+        sort_by_x,
+        descending,
+        shapes_to_sort,
+        invert_shapes,
+        labels_to_sort,
+        invert_labels,
+    );
 
     LabelMeData {
         shapes: shape_map
@@ -94,7 +113,15 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     if args.input.extension().is_some_and(|ext| ext == "json") {
         let reader = BufReader::new(File::open(&args.input)?);
         let data: LabelMeData = serde_json::from_reader(reader)?;
-        let sorted_data = process_data(data, args.by_x, args.descending, args.shapes, args.labels);
+        let sorted_data = process_data(
+            data,
+            args.by_x,
+            args.descending,
+            &args.shapes,
+            args.invert_shape_matching,
+            &args.labels,
+            args.invert_label_matching,
+        );
         println!("{}", serde_json::to_string_pretty(&sorted_data)?);
     } else if args.input.as_os_str() == "-"
         || args
@@ -115,8 +142,10 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                 lm_data_line.content,
                 args.by_x,
                 args.descending,
-                args.shapes.clone(),
-                args.labels.clone(),
+                &args.shapes,
+                args.invert_shape_matching,
+                &args.labels,
+                args.invert_label_matching,
             );
             let sorted_data_line = LabelMeDataLine {
                 content: sorted_data,

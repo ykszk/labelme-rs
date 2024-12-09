@@ -372,13 +372,21 @@ pub struct SortCmdArgs {
     #[clap(short, long)]
     pub descending: bool,
 
-    /// Sort only specified shapes
-    #[clap(short, long, value_hint = ValueHint::Other)]
+    /// Sort only specified shapes. Comma separated list
+    #[clap(short, long, value_hint = ValueHint::Other, value_delimiter = ',', group = "shape")]
     pub shapes: Option<Vec<String>>,
 
-    /// Sort only specified labels
-    #[clap(short, long, value_hint = ValueHint::Other)]
+    /// Invert shape matching. i.e. sort shapes not in the list
+    #[clap(long = "inv-shape", requires = "shapes")]
+    pub invert_shape_matching: bool,
+
+    /// Sort only specified labels. Comma separated list
+    #[clap(short, long, value_hint = ValueHint::Other, value_delimiter = ',', group = "label")]
     pub labels: Option<Vec<String>>,
+
+    /// Invert label matching. i.e. sort labels not in the list
+    #[clap(long = "inv-label", requires = "labels")]
+    pub invert_label_matching: bool,
 }
 
 /// Server config
