@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --release --features dicom
+      run: cargo build --release --features gdcm
     - name: Run tests
       run: cargo test --release --all
 
