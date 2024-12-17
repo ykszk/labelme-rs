@@ -237,15 +237,12 @@ pub fn evaluate_rules(
     asts: &[Expr],
     shapes: Vec<labelme_rs::Shape>,
 ) -> Vec<(String, (isize, isize))> {
-    let mut point_map: IndexMap<String, Vec<Point>> = IndexMap::new();
+    let mut point_map: IndexMap<String, isize> = IndexMap::new();
     for shape in shapes.into_iter() {
-        let vec: &mut Vec<Point> = point_map.entry(shape.label).or_default();
-        vec.push(shape.points[0]);
+        let count = point_map.entry(shape.label).or_default();
+        *count += 1;
     }
-    let vars: Vec<_> = point_map
-        .iter()
-        .map(|(k, v)| (k, v.len() as isize))
-        .collect();
+    let vars: Vec<_> = point_map.iter().map(|(k, v)| (k, *v)).collect();
 
     let errors: Vec<_> = asts
         .iter()

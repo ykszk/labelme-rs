@@ -23,6 +23,7 @@ mod resize;
 mod shapeshift;
 mod sort;
 mod split_ndjson;
+mod stats;
 mod swap_prefix;
 mod validate;
 
@@ -55,5 +56,6 @@ fn main() -> Result<()> {
         Command::Count(args) => count::cmd(args),
         Command::Sort(args) => sort::cmd(args),
         Command::Browse(args) => browse::cmd(args),
+        Command::Stats(args) => stats::cmd(args),
     }
 }

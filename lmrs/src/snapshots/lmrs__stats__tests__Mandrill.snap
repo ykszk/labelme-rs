@@ -1,0 +1,5 @@
+---
+source: lmrs/src/stats.rs
+expression: output
+---
+{"polygon":{"Eye":2},"linestrip":{"Groove":6},"circle":{"Iris":2},"rectangle":{"Nose":1},"line":{"EyeBrow":1},"point":{"Nostril":2,"Glabella":1}}

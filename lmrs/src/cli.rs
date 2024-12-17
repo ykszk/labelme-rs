@@ -49,6 +49,8 @@ pub enum Command {
     Sort(SortCmdArgs),
     /// Browse labelme annotations
     Browse(BrowseCmdArgs),
+    /// Count shape statistics
+    Stats(StatsCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -434,4 +436,10 @@ pub struct BrowseCmdArgs {
     /// SVG config
     #[clap(flatten)]
     pub svg: SvgConfig,
+}
+
+#[derive(Debug, Parser)]
+pub struct StatsCmdArgs {
+    /// Input json or ndjson. Specify "-" to use stdin
+    pub input: PathBuf,
 }
