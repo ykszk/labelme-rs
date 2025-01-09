@@ -35,6 +35,8 @@ pub enum Command {
     Drop(DropCmdArgs),
     /// Join ndjson files
     Join(JoinCmdArgs),
+    /// Apply 3x3 transformation matrix to the points
+    Mat(MatCmdArgs),
     /// Scale point coordinates according to the resize parameter
     Resize(ResizeCmdArgs),
     /// Create empty labelme json for the image
@@ -216,6 +218,28 @@ pub struct SwapCmdArgs {
     /// Swap suffix (e.g. ".jpg") with the given suffix instead of swapping the prefix
     #[clap(long)]
     pub suffix: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct MatCmdArgs {
+    /// Input json
+    pub input: PathBuf,
+    /// Output json
+    #[clap(value_hint = ValueHint::FilePath)]
+    pub output: Option<PathBuf>,
+
+    /// 3x3 transformation matrix
+    #[clap(short, long, value_hint = ValueHint::Other, allow_hyphen_values=true, num_args=9, value_name="x", conflicts_with_all = &["translate", "scale", "rotate"])]
+    pub matrix: Option<Vec<f64>>,
+    /// Translation
+    #[clap(short, long, value_hint = ValueHint::Other, allow_hyphen_values=true, num_args=2, value_names=["tx", "ty"])]
+    pub translate: Option<Vec<f64>>,
+    /// Scale
+    #[clap(short, long, value_hint = ValueHint::Other, allow_hyphen_values=true, num_args=2, value_names=["sx", "sy"])]
+    pub scale: Option<Vec<f64>>,
+    /// Rotation in degrees
+    #[clap(short, long, value_hint = ValueHint::Other, allow_hyphen_values=true, value_names=["degrees"], conflicts_with_all = &["translate", "scale"])]
+    pub rotate: Option<f64>,
 }
 
 #[derive(Args, Debug)]
