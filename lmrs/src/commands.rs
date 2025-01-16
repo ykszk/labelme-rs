@@ -18,6 +18,7 @@ mod join;
 mod lm2svg;
 mod lms2html;
 mod mat;
+mod merge;
 mod ndjson;
 mod remove;
 mod resize;
@@ -48,6 +49,7 @@ fn main() -> Result<()> {
         Command::Filter(args) => filter::cmd(args),
         Command::Drop(args) => drop_dups::cmd(args),
         Command::Join(args) => join::cmd(args),
+        Command::Merge(args) => merge::cmd(args),
         Command::Mat(args) => mat::cmd(args),
         Command::Resize(args) => resize::cmd(args),
         Command::Init(args) => init::cmd(args),

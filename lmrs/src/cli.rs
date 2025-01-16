@@ -35,6 +35,8 @@ pub enum Command {
     Drop(DropCmdArgs),
     /// Join ndjson files
     Join(JoinCmdArgs),
+    /// Merge labelme annotations
+    Merge(MergeCmdArgs),
     /// Apply 3x3 transformation matrix to the points
     Mat(MatCmdArgs),
     /// Scale point coordinates according to the resize parameter
@@ -347,6 +349,16 @@ pub struct JoinCmdArgs {
     /// Join mode
     #[clap(long, default_value = "outer")]
     pub mode: JoinMode,
+    /// Missing key handling
+    #[clap(long, default_value = "exit")]
+    pub missing: MissingHandling,
+}
+
+#[derive(Debug, Args)]
+pub struct MergeCmdArgs {
+    /// Input ndjson. Specify "-" to use stdin
+    #[clap(required=true, num_args=2..)]
+    pub input: Vec<PathBuf>,
     /// Missing key handling
     #[clap(long, default_value = "exit")]
     pub missing: MissingHandling,
