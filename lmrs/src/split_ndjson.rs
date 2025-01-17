@@ -35,7 +35,11 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             std::fs::File::create(&output_filename)
                 .with_context(|| format!("Writing to {:?}", output_filename))?,
         );
-        serde_json::to_writer_pretty(writer, &json_data.get(&args.content))?;
+        if args.pretty {
+            serde_json::to_writer_pretty(writer, &json_data.get(&args.content))?;
+        } else {
+            serde_json::to_writer(writer, &json_data.get(&args.content))?;
+        }
     }
     Ok(())
 }

@@ -331,11 +331,14 @@ pub struct SplitCmdArgs {
     #[clap(long, default_value = "content", value_hint = ValueHint::Other)]
     pub content: String,
     /// Overwrite json files if exist
-    #[clap(long, action)]
+    #[clap(long)]
     pub overwrite: bool,
     /// How to handle the parent directory in the filename field
     #[clap(short, long, default_value = "keep")]
     pub parent: SplitParentHandling,
+    /// Pretty print json
+    #[clap(long)]
+    pub pretty: bool,
 }
 
 #[derive(Debug, Args)]
