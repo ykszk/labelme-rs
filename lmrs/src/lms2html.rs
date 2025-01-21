@@ -74,9 +74,10 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         PathBuf::from(".").canonicalize()?
     } else {
         args.input
+            .canonicalize()?
             .parent()
             .context("Input has no parent directory")?
-            .canonicalize()?
+            .to_path_buf()
     };
     let json_dir = if let Some(image_dir) = &args.image_dir {
         image_dir.canonicalize()?
