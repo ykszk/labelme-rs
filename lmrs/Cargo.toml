@@ -37,8 +37,9 @@ tar = "0.4.40"
 serde.workspace = true
 actix-web = "4.9"
 toml = "0.8.19"
-dirs = "5.0"
+dirs = "6.0.0"
 open = "5.3"
+rayon = "1.10"
 
 [dev-dependencies]
 insta = "1.40"

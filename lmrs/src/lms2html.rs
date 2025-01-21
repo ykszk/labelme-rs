@@ -1,5 +1,6 @@
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{ensure, Context, Result};
 use labelme_rs::indexmap::{IndexMap, IndexSet};
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -9,6 +10,12 @@ use labelme_rs::{load_label_colors, LabelColorsHex, LabelMeDataWImage};
 use lmrs::cli::HtmlCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
+    if let Some(jobs) = args.jobs {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(jobs)
+            .build_global()?;
+    }
+
     let mut templates = tera::Tera::default();
     templates.autoescape_on(vec![]);
     templates.add_raw_templates(vec![
@@ -24,14 +31,9 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             include_str!("templates/shape_toggle.html"),
         ),
     ])?;
-    let n_jobs = if let Some(n) = args.jobs {
-        n
-    } else {
-        std::thread::available_parallelism()?.get()
-    };
-    debug!("Use {n_jobs} cores");
-    debug!("Load jsons");
-    let mut entries: Vec<(PathBuf, Box<labelme_rs::LabelMeData>)> = if args.input.is_dir() {
+
+    let entries: Vec<(PathBuf, Box<labelme_rs::LabelMeData>)> = if args.input.is_dir() {
+        debug!("Load from directory");
         let entries: Result<Vec<_>> = glob::glob(
             args.input
                 .join("*.json")
@@ -49,9 +51,14 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         entries?
     } else {
         let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
+            debug!("Load from stdin");
             Box::new(BufReader::new(std::io::stdin()))
         } else {
-            Box::new(BufReader::new(File::open(&args.input)?))
+            debug!("Load from file");
+            Box::new(BufReader::new(
+                File::open(&args.input)
+                    .with_context(|| format!("Open {}", args.input.display()))?,
+            ))
         };
         let entries: Result<Vec<_>> = reader
             .lines()
@@ -105,128 +112,93 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         }
         None => IndexMap::new(),
     };
+    let mut all_labels: IndexSet<String> = IndexSet::default();
     let mut all_shapes: IndexSet<String> = IndexSet::default();
     debug!("Collect tag and label info");
-    std::thread::scope(|scope| {
-        let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
-        let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
-        for chunk in entries.chunks_mut(chunk_size) {
-            handles.push(scope.spawn(|| {
-                let mut all_tags: IndexSet<&str> = IndexSet::default();
-                let mut all_labels: IndexSet<&str> = IndexSet::default();
-                let mut all_shapes: IndexSet<&str> = IndexSet::default();
-                for (_, json_data) in chunk {
-                    for (flag, checked) in &json_data.flags {
-                        if *checked {
-                            all_tags.insert(flag);
-                        }
-                    }
-                    for shape in &json_data.shapes {
-                        all_labels.insert(&shape.label);
-                        all_shapes.insert(&shape.shape_type);
-                    }
-                }
-                (all_tags, all_labels, all_shapes)
-            }));
-        }
-        let mut cycler = labelme_rs::ColorCycler::default();
-        for handle in handles {
-            let result = handle.join().unwrap();
-            for flag in result.0 {
+    for (_, json_data) in entries.iter() {
+        for (flag, checked) in &json_data.flags {
+            if *checked {
                 all_tags
                     .entry(flag.to_string())
                     .and_modify(|v| *v = true)
                     .or_insert(true);
             }
-            for color in result.1 {
-                label_colors
-                    .entry(color.to_string())
-                    .or_insert_with(|| cycler.cycle().to_string());
-            }
-            all_shapes.extend(result.2.iter().map(|s| s.to_string()));
         }
-    });
+        for shape in &json_data.shapes {
+            all_labels.insert(shape.label.clone());
+            all_shapes.insert(shape.shape_type.clone());
+        }
+    }
+    let mut cycler = labelme_rs::ColorCycler::default();
+    for color in all_labels.iter() {
+        label_colors
+            .entry(color.to_string())
+            .or_insert_with(|| cycler.cycle().to_string());
+    }
 
-    let mut svgs: Vec<String> = Vec::with_capacity(entries.len());
     let resize_param = match args.svg.resize {
         Some(s) => Some(labelme_rs::ResizeParam::try_from(s.as_str())?),
         None => None,
     };
 
     debug!("Generate svgs");
-    std::thread::scope(|scope| {
-        let mut handles: Vec<_> = Vec::with_capacity(n_jobs);
-        let chunk_size = (entries.len() as f64 / n_jobs as f64).ceil() as usize;
-        for chunk in entries.chunks_mut(chunk_size) {
-            handles.push(scope.spawn(|| {
-                let svgs: Result<Vec<String>> = chunk
-                    .iter_mut()
-                    .map(|entry| {
-                        let input = &mut entry.0;
-                        let mut json_data = entry.1.clone();
+    let svgs: Result<Vec<String>> = entries
+        .into_par_iter()
+        .map(|entry| {
+            let input = entry.0;
+            let mut json_data = entry.1;
 
-                        json_data.imagePath = json_data.imagePath.replace('\\', "/");
-                        let image_path = json_data.imagePath.clone();
-                        let json_data = json_data.to_absolute_path(&json_dir);
-                        let mut data_w_img: LabelMeDataWImage =
-                            LabelMeDataWImage::try_from(json_data)
-                                .with_context(|| format!("load {}", image_path))?;
+            json_data.imagePath = json_data.imagePath.replace('\\', "/");
+            let image_path = json_data.imagePath.clone();
+            let json_data = json_data.to_absolute_path(&json_dir);
+            let mut data_w_img: LabelMeDataWImage = LabelMeDataWImage::try_from(json_data)
+                .with_context(|| format!("load {}", image_path))?;
 
-                        if let Some(param) = resize_param.as_ref() {
-                            data_w_img.resize(param);
-                        }
+            if let Some(param) = resize_param.as_ref() {
+                data_w_img.resize(param);
+            }
 
-                        let flags: Vec<_> = data_w_img
-                            .data
-                            .flags
-                            .iter()
-                            .filter(|(_k, v)| **v)
-                            .map(|(k, _v)| k.clone())
-                            .collect();
-                        let flags = flags.join(" ");
-                        let label_counts = data_w_img.data.count_labels();
-                        let title = label_counts
-                            .iter()
-                            .map(|(k, v)| format!("{k}:{v}"))
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        let document = data_w_img.data.to_svg(
-                            &label_colors,
-                            args.svg.radius,
-                            args.svg.line_width,
-                            &data_w_img.image,
-                        );
-                        let mut context = tera::Context::new();
-                        context.insert("tags", &flags);
-                        context.insert("flags", &flags);
-                        context.insert("title", &title);
-                        context.insert(
-                            "name",
-                            &input
-                                .file_stem()
-                                .context("Failed to get file_stem")?
-                                .to_string_lossy(),
-                        );
-                        context.insert("svg", &document.to_string());
-                        let fig = templates
-                            .render("img.html", &context)
-                            .expect("Failed to render img.html");
-                        let bar = shared_bar.lock().unwrap();
-                        bar.inc(1);
-                        Ok(fig)
-                    })
-                    .collect();
-                svgs
-            }));
-        }
-        for handle in handles {
-            let results: Result<_> = handle.join().unwrap();
-            let mut results = results
-                .or_else(|e| bail!("Failed to generate html: {}", e))
-                .unwrap();
-            svgs.append(&mut results);
-        }
-    });
+            let flags: Vec<_> = data_w_img
+                .data
+                .flags
+                .iter()
+                .filter(|(_k, v)| **v)
+                .map(|(k, _v)| k.clone())
+                .collect();
+            let flags = flags.join(" ");
+            let label_counts = data_w_img.data.count_labels();
+            let title = label_counts
+                .iter()
+                .map(|(k, v)| format!("{k}:{v}"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let document = data_w_img.data.to_svg(
+                &label_colors,
+                args.svg.radius,
+                args.svg.line_width,
+                &data_w_img.image,
+            );
+            let mut context = tera::Context::new();
+            context.insert("tags", &flags);
+            context.insert("flags", &flags);
+            context.insert("title", &title);
+            context.insert(
+                "name",
+                &input
+                    .file_stem()
+                    .context("Failed to get file_stem")?
+                    .to_string_lossy(),
+            );
+            context.insert("svg", &document.to_string());
+            let fig = templates
+                .render("img.html", &context)
+                .expect("Failed to render img.html");
+            let bar = shared_bar.lock().unwrap();
+            bar.inc(1);
+            Ok(fig)
+        })
+        .collect();
+    let svgs = svgs?;
     {
         shared_bar.lock().unwrap().finish();
     };
