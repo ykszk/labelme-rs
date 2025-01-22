@@ -28,7 +28,7 @@ pub type Point = (f64, f64);
 pub struct Shape {
     pub label: String,
     pub points: Vec<Point>,
-    pub group_id: Option<String>,
+    pub group_id: Option<usize>,
     pub shape_type: String,
     pub flags: Flags,
 }
