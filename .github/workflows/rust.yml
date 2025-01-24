@@ -15,10 +15,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --release --features gdcm
     - name: Run tests
-      run: cargo test --release --all
+      run: cargo test --all
+    - name: Build
+      run: cargo build --profile release-lto --features gdcm
 
     - name: Package for windows
       id: create_package
