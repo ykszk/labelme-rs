@@ -24,6 +24,12 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         let json_data: labelme_rs::LabelMeDataLine =
             serde_json::from_str(&line).with_context(|| format!("Processing line:{line}"))?;
         let errors = lmrs::evaluate_rules(&rules, &asts, json_data.content.shapes);
+        if !errors.is_empty() {
+            log::debug!("Errors found in {}", json_data.filename);
+            for error in &errors {
+                log::debug!("{}: {} vs. {}", error.0, error.1 .0, error.1 .1);
+            }
+        }
         if errors.is_empty() ^ args.invert {
             println!("{}", line);
         }
