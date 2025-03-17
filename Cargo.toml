@@ -4,7 +4,7 @@ default-members = ["lmrs", "labelme-rs"]
 resolver = "2"
 
 [workspace.package]
-version = "0.13.0"
+version = "0.13.1"
 authors = ["Yuki SUZUKI <y-suzuki@radiol.med.osaka-u.ac.jp>"]
 edition = "2021"
 repository = "https://github.com/ykszk/labelme-rs"
