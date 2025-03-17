@@ -1,6 +1,9 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use glob::glob;
 use labelme_rs::indexmap::IndexSet;
+use rayon::prelude::*;
+use std::collections::HashMap;
+use std::sync::Mutex;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -8,7 +11,57 @@ use std::sync::{
 
 use lmrs::cli::ValidateCmdArgs as CmdArgs;
 
+struct OrderedWriter {
+    pub buf: HashMap<usize, Option<String>>,
+    current: usize,
+}
+
+impl OrderedWriter {
+    fn new() -> Self {
+        Self {
+            buf: HashMap::new(),
+            current: 0,
+        }
+    }
+
+    fn write(&mut self, id: usize, s: String) {
+        self.buf.insert(id, Some(s));
+        if id == self.current {
+            self.flush();
+        }
+    }
+
+    fn skip(&mut self, id: usize) {
+        self.buf.insert(id, None);
+        if id == self.current {
+            self.flush();
+        }
+    }
+
+    fn flush(&mut self) {
+        while let Some(s) = self.buf.remove(&self.current) {
+            if let Some(s) = s {
+                print!("{}", s);
+            }
+            self.current += 1;
+        }
+    }
+
+    fn flush_all(&mut self) {
+        let ordered_keys: Vec<_> = self.buf.keys().copied().collect();
+        for id in ordered_keys {
+            if let Some(Some(s)) = self.buf.remove(&id) {
+                print!("{}", s);
+            }
+        }
+    }
+}
+
 pub fn cmd(args: CmdArgs) -> Result<()> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(args.threads)
+        .build_global()?;
+
     let verbosity = args.verbose;
     let mut rules = lmrs::load_rules(&args.rules)?;
     for filename in args.additional {
@@ -20,13 +73,9 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     if !indir.exists() {
         return Err(std::io::Error::from(std::io::ErrorKind::NotFound).into());
     }
-    let mut n_threads = args.threads;
-    if n_threads == 0 {
-        n_threads = num_cpus::get_physical();
-    }
     let checked_count = Arc::new(AtomicUsize::new(0));
     let valid_count = Arc::new(AtomicUsize::new(0));
-    let file_list: Vec<_> = glob(
+    let file_list: Result<Vec<_>, _> = glob(
         indir
             .join("**/*.json")
             .to_str()
@@ -34,57 +83,41 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     )
     .expect("Failed to read glob pattern")
     .collect();
-    let file_list = Arc::new(file_list);
+    let mut file_list = file_list?;
+    file_list.sort();
+    let file_id_list = file_list.into_iter().enumerate().collect::<Vec<_>>();
     let flag_set: IndexSet<String> = args.flag.into_iter().collect();
     let ignore_set: IndexSet<String> = args.ignore.into_iter().collect();
-    std::thread::scope(|scope| {
-        let mut handles = vec![];
-        for thread_i in 0..n_threads {
-            let checked_count = Arc::clone(&checked_count);
-            let valid_count = Arc::clone(&valid_count);
-            let file_list = &file_list;
-            let indir = &args.input;
-            let flag_set = &flag_set;
-            let ignore_set = &ignore_set;
-            let rules = &rules;
-            let asts = &asts;
-            let handle = scope.spawn(move || {
-                for i in (thread_i..file_list.len()).step_by(n_threads) {
-                    let entry = &file_list[i];
-                    match entry {
-                        Ok(path) => {
-                            let check_result =
-                                lmrs::check_json_file(rules, asts, path, flag_set, ignore_set);
-                            let disp_path = path.strip_prefix(indir).unwrap_or(path.as_path());
-                            match check_result {
-                                Ok(ret) => {
-                                    if ret == lmrs::CheckResult::Passed {
-                                        checked_count.fetch_add(1, Ordering::SeqCst);
-                                        valid_count.fetch_add(1, Ordering::SeqCst);
-                                    }
-                                    if verbosity > 0 && ret != lmrs::CheckResult::Skipped {
-                                        println!("{:?},", disp_path);
-                                    }
-                                }
-                                Err(err) => {
-                                    checked_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                                    println!("{:?},{}", disp_path, err);
-                                }
-                            };
-                        }
-                        Err(e) => println!("{e:?}"),
+    let writer = Arc::new(Mutex::new(OrderedWriter::new()));
+    file_id_list.into_par_iter().for_each(|(id_path, path)| {
+        let check_result = lmrs::check_json_file(&rules, &asts, &path, &flag_set, &ignore_set);
+        let disp_path = path.strip_prefix(&args.input).unwrap_or(path.as_path());
+        match check_result {
+            Ok(ret) =>
+            {
+                #[allow(clippy::collapsible_else_if)]
+                if ret == lmrs::CheckResult::Passed {
+                    checked_count.fetch_add(1, Ordering::SeqCst);
+                    valid_count.fetch_add(1, Ordering::SeqCst);
+                    writer.lock().unwrap().skip(id_path);
+                } else {
+                    if verbosity > 0 {
+                        let mut writer = writer.lock().unwrap();
+                        writer.write(id_path, format!("{:?}\n", disp_path));
+                    } else {
+                        writer.lock().unwrap().skip(id_path);
                     }
                 }
-            });
-            handles.push(handle);
-        }
-        for handle in handles {
-            handle
-                .join()
-                .or_else(|e| bail!("Failed to execute validation: {:?}", e))
-                .unwrap();
-        }
+            }
+            Err(err) => {
+                checked_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut writer = writer.lock().unwrap();
+                writer.write(id_path, format!("{:?},{}\n", disp_path, err));
+            }
+        };
     });
+    let mut writer = writer.lock().unwrap();
+    writer.flush_all();
     if args.stats {
         println!(
             "{} / {} annotations are valid.",
