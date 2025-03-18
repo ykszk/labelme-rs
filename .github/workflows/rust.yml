@@ -23,7 +23,7 @@ jobs:
     - name: Package for windows
       id: create_package
       run: |
-        powershell Compress-Archive -Path target/release/*.exe -DestinationPath labelme-rs-${{github.ref_name}}.zip
+        powershell Compress-Archive -Path target/release-lto/*.exe -DestinationPath labelme-rs-${{github.ref_name}}.zip
         
     - name: Release
       uses: softprops/action-gh-release@v1
