@@ -91,8 +91,8 @@ pub struct RemoveCmdArgs {
 }
 
 #[derive(Args, Debug)]
-pub struct ReshapeCircle2Point {
-    /// Point index to use as the point (0 or 1)
+pub struct Reshape2Point {
+    /// Point index to use as the point (0 or 1 for cicle)
     #[clap(short, long, default_value = "0")]
     pub index: usize,
 }
@@ -100,7 +100,11 @@ pub struct ReshapeCircle2Point {
 #[derive(Debug, Subcommand)]
 pub enum ReshapeType {
     /// Circle to point
-    C2P(ReshapeCircle2Point),
+    #[clap(name = "c2p")]
+    CirclePoint(Reshape2Point),
+    /// Polygon to point
+    #[clap(name = "p2p")]
+    PolyPoint(Reshape2Point),
 }
 
 #[derive(Args, Debug)]

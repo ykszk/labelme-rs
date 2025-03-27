@@ -5,18 +5,25 @@ use std::io::{BufRead, BufReader};
 
 use lmrs::cli::{ReshapeType, ShapeshiftCmdArgs as CmdArgs};
 
+fn reshape(shape: &mut labelme_rs::Shape, from: &str, to: &str, index: usize) {
+    if shape.shape_type == from {
+        let point = shape.points[index];
+        shape.shape_type = to.to_string();
+        shape.points = vec![point];
+    }
+}
+
 fn change_shape(json_data_line: &mut labelme_rs::LabelMeDataLine, reshape_type: &ReshapeType) {
     json_data_line
         .content
         .shapes
         .iter_mut()
         .for_each(|shape| match reshape_type {
-            ReshapeType::C2P(args) => {
-                if shape.shape_type == "circle" {
-                    let point = shape.points[args.index];
-                    shape.shape_type = "point".to_string();
-                    shape.points = vec![point];
-                }
+            ReshapeType::CirclePoint(args) => {
+                reshape(shape, "circle", "point", args.index);
+            }
+            ReshapeType::PolyPoint(args) => {
+                reshape(shape, "polygon", "point", args.index);
             }
         });
 }
@@ -42,7 +49,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use labelme_rs::LabelMeDataLine;
-    use lmrs::cli::ReshapeCircle2Point;
+    use lmrs::cli::Reshape2Point;
 
     use super::*;
     fn read_to_line(name: &str) -> Result<String> {
@@ -73,7 +80,7 @@ mod tests {
 
         change_shape(
             &mut original_data_line,
-            &ReshapeType::C2P(ReshapeCircle2Point { index: 0 }),
+            &ReshapeType::CirclePoint(Reshape2Point { index: 0 }),
         );
         let reshaped_circles: Vec<_> = original_data_line
             .content
