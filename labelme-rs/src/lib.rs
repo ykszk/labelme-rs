@@ -412,6 +412,20 @@ impl LabelMeData {
         counts
     }
 
+    /// Standardize the point order in shapes
+    ///
+    /// - `rectangle`: top-left, bottom-right
+    pub fn standardize(&mut self) {
+        for shape in &mut self.shapes {
+            if shape.shape_type == "rectangle" && shape.points.len() == 2 {
+                let p1 = shape.points[0];
+                let p2 = shape.points[1];
+                shape.points[0] = (p1.0.min(p2.0), p1.1.min(p2.1));
+                shape.points[1] = (p1.0.max(p2.0), p1.1.max(p2.1));
+            }
+        }
+    }
+
     pub fn to_svg(
         &self,
         label_colors: &LabelColorsHex,
@@ -473,10 +487,10 @@ impl LabelMeData {
                         continue;
                     }
                     let rect = element::Rectangle::new()
-                        .set("x", rectangle[0].0.min(rectangle[1].0))
-                        .set("y", rectangle[0].1.min(rectangle[1].1))
-                        .set("width", (rectangle[1].0 - rectangle[0].0).abs())
-                        .set("height", (rectangle[1].1 - rectangle[0].1).abs());
+                        .set("x", rectangle[0].0)
+                        .set("y", rectangle[0].1)
+                        .set("width", rectangle[1].0 - rectangle[0].0)
+                        .set("height", rectangle[1].1 - rectangle[0].1);
                     group = group.add(rect);
                 }
                 document = document.add(group);
