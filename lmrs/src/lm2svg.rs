@@ -16,7 +16,6 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         Some(config) => load_label_colors(&config)?,
         None => LabelColorsHex::new(),
     };
-    json_data.standardize();
 
     if args.input.as_os_str() != "-" {
         let canonical_input = args.input.canonicalize()?;

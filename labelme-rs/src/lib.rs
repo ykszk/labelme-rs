@@ -5,7 +5,7 @@ pub use indexmap;
 use indexmap::{IndexMap, IndexSet};
 use regex::Regex;
 pub use serde;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 pub use serde_json;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -33,7 +33,7 @@ pub struct Shape {
     pub flags: Flags,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Debug, Clone, Default, PartialEq)]
 #[allow(non_snake_case)]
 pub struct LabelMeData {
     pub version: String,
@@ -43,6 +43,42 @@ pub struct LabelMeData {
     pub imageData: Option<String>,
     pub imageHeight: usize,
     pub imageWidth: usize,
+}
+
+/// Customize deserialization to hook [`LabelMeData::standardize`]
+impl<'de> Deserialize<'de> for LabelMeData {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[allow(non_snake_case)]
+        struct LabelMeDataHelper {
+            version: String,
+            flags: Flags,
+            shapes: Vec<Shape>,
+            imagePath: String,
+            imageData: Option<String>,
+            imageHeight: usize,
+            imageWidth: usize,
+        }
+
+        let helper = LabelMeDataHelper::deserialize(deserializer)?;
+
+        let mut data = LabelMeData {
+            version: helper.version,
+            flags: helper.flags,
+            shapes: helper.shapes,
+            imagePath: helper.imagePath,
+            imageData: helper.imageData,
+            imageHeight: helper.imageHeight,
+            imageWidth: helper.imageWidth,
+        };
+
+        data.standardize();
+
+        Ok(data)
+    }
 }
 
 #[derive(Error, Debug)]
@@ -296,7 +332,7 @@ pub fn img2base64(
 }
 
 impl LabelMeData {
-    pub fn new(
+    pub fn from_points(
         points: &[Point],
         labels: &[String],
         width: usize,
@@ -392,7 +428,7 @@ impl LabelMeData {
     /// Count the number of labels
     ///
     /// ```
-    /// let data = labelme_rs::LabelMeData::new(&[(1.0, 1.0), (2.0, 2.0), (3.0, 3.0)], &["L1".into(), "L2".into(), "L2".into()], 128, 128, "image.jpg");
+    /// let data = labelme_rs::LabelMeData::from_points(&[(1.0, 1.0), (2.0, 2.0), (3.0, 3.0)], &["L1".into(), "L2".into(), "L2".into()], 128, 128, "image.jpg");
     /// let counts = data.count_labels();
     /// assert_eq!(*counts.get("L1").unwrap(), 1usize);
     /// assert_eq!(*counts.get("L2").unwrap(), 2usize);
@@ -828,5 +864,27 @@ mod tests {
         for i in 0..=11 {
             assert_eq!(cycler.cycle(), TAB10[i % 10]);
         }
+    }
+
+    #[test]
+    fn test_standardize() {
+        let mut data = LabelMeData::from_points(
+            &[(1.0, 1.0), (2.0, 2.0)],
+            &["L1".into(), "L2".into()],
+            128,
+            128,
+            "image.jpg",
+        );
+        data.shapes[0].shape_type = "rectangle".into();
+        data.shapes[0].points = vec![(2.0, 2.0), (1.0, 1.0)];
+        let json = serde_json::to_string(&data).unwrap();
+        data.standardize();
+        assert_eq!(data.shapes[0].points[0], (1.0, 1.0));
+        assert_eq!(data.shapes[0].points[1], (2.0, 2.0));
+
+        // test auto standardize
+        let data: LabelMeData = serde_json::from_str(&json).unwrap();
+        assert_eq!(data.shapes[0].points[0], (1.0, 1.0));
+        assert_eq!(data.shapes[0].points[1], (2.0, 2.0));
     }
 }
