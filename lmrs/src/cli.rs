@@ -82,12 +82,22 @@ pub struct FilterCmdArgs {
 pub struct RemoveCmdArgs {
     /// Input ndjson filename. Specify '-' to use stdin
     pub input: PathBuf,
-    /// Label(s) to remove
-    #[clap(short, long, required = true)]
-    pub label: Vec<String>,
+    #[command(flatten)]
+    pub remove: RemoveArgs,
     /// Invert removal condition.
     #[clap(short = 'v', long)]
     pub invert: bool,
+}
+
+#[derive(Args, Debug)]
+#[group(required = true, multiple = true)]
+pub struct RemoveArgs {
+    /// Shape types(s) to remove
+    #[clap(short, long, value_hint = ValueHint::Other)]
+    pub shape: Vec<String>,
+    /// Label(s) to remove
+    #[clap(short, long, value_hint = ValueHint::Other)]
+    pub label: Vec<String>,
 }
 
 #[derive(Args, Debug)]

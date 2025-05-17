@@ -5,18 +5,20 @@ use std::io::{BufRead, BufReader};
 
 use lmrs::cli::RemoveCmdArgs as CmdArgs;
 
-fn remove_labels(
+fn remove(
     line: &str,
+    shapes: &[String],
     labels: &[String],
     invert: bool,
 ) -> Result<labelme_rs::LabelMeDataLine> {
     let mut json_data_line: labelme_rs::LabelMeDataLine =
         serde_json::from_str(line).with_context(|| format!("Processing line:{line}"))?;
     json_data_line.content.shapes.retain(|shape| {
+        let to_remove = shapes.contains(&shape.shape_type) || labels.contains(&shape.label);
         if invert {
-            labels.contains(&shape.label)
+            to_remove
         } else {
-            !labels.contains(&shape.label)
+            !to_remove
         }
     });
     Ok(json_data_line)
@@ -31,7 +33,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     let writer = std::io::stdout();
     for line in reader.lines() {
         let line = line?;
-        let json_data_line = remove_labels(&line, &args.label, args.invert)?;
+        let json_data_line = remove(&line, &args.remove.shape, &args.remove.label, args.invert)?;
         serde_json::to_writer(writer.lock(), &json_data_line)?;
         println!();
     }
@@ -59,16 +61,21 @@ mod tests {
     fn test_process_json_line() -> Result<()> {
         let labels = vec!["TL".to_string()];
         let line = read_to_line("img1.json")?;
-        let json_data_line = remove_labels(&line, &labels, false)?;
+        let json_data_line = remove(&line, &[], &labels, false)?;
         assert_eq!(json_data_line.content.shapes.len(), 0);
-        let json_data_line = remove_labels(&line, &labels, true)?;
+        let json_data_line = remove(&line, &[], &labels, true)?;
         assert_eq!(json_data_line.content.shapes.len(), 1);
 
         let line = read_to_line("test.json")?;
-        let json_data_line = remove_labels(&line, &labels, false)?;
+        let json_data_line = remove(&line, &[], &labels, false)?;
         assert_eq!(json_data_line.content.shapes.len(), 3);
-        let json_data_line = remove_labels(&line, &labels, true)?;
+        let json_data_line = remove(&line, &[], &labels, true)?;
         assert_eq!(json_data_line.content.shapes.len(), 1);
+
+        // Test removing shapes
+        let shapes = vec!["point".to_string()];
+        let json_data_line = remove(&line, &shapes, &[], false)?;
+        assert_eq!(json_data_line.content.shapes.len(), 0);
         Ok(())
     }
 }
