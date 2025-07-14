@@ -327,7 +327,8 @@ pub fn img2base64(
     format: image::ImageFormat,
 ) -> Result<String, LabelMeDataError> {
     let mut cursor = Cursor::new(Vec::new());
-    img.write_to(&mut cursor, format)?;
+    img.write_to(&mut cursor, format)
+        .map_err(|e| LabelMeDataError::from(ImageError::from(e)))?;
     Ok(base64::engine::general_purpose::STANDARD.encode(cursor.into_inner()))
 }
 
