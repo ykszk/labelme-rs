@@ -723,7 +723,7 @@ pub fn load_image(path: &Path) -> Result<DynamicImage, ImageError> {
     #[cfg(feature = "dicom")]
     if path
         .extension()
-        .map_or(false, |ext| ext == "dcm" || ext == "dicom")
+        .map_or(true, |ext| ext == "dcm" || ext == "dicom")
     {
         let dynamic_image = load_dicom(path)?;
         return Ok(dynamic_image);
