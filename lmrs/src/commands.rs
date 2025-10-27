@@ -20,6 +20,7 @@ mod lms2html;
 mod mat;
 mod merge;
 mod ndjson;
+mod prune;
 mod remove;
 mod resize;
 mod shapeshift;
@@ -61,5 +62,6 @@ fn main() -> Result<()> {
         Command::Sort(args) => sort::cmd(args),
         Command::Browse(args) => browse::cmd(args),
         Command::Stats(args) => stats::cmd(args),
+        Command::Prune(args) => prune::cmd(args),
     }
 }

@@ -308,8 +308,7 @@ pub fn img2base64(
             Ok(Ok(writer)) => return Ok(base64::engine::general_purpose::STANDARD.encode(writer)),
             Ok(Err(e)) => return Err(e.into()),
             Err(e) => {
-                return Err(LabelMeDataError::IoError(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                return Err(LabelMeDataError::IoError(std::io::Error::other(
                     format!("{:?}", e),
                 )))
             }
@@ -723,7 +722,7 @@ pub fn load_image(path: &Path) -> Result<DynamicImage, ImageError> {
     #[cfg(feature = "dicom")]
     if path
         .extension()
-        .map_or(true, |ext| ext == "dcm" || ext == "dicom")
+        .is_none_or(|ext| ext == "dcm" || ext == "dicom")
     {
         let dynamic_image = load_dicom(path)?;
         return Ok(dynamic_image);

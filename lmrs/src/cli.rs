@@ -55,6 +55,8 @@ pub enum Command {
     Browse(BrowseCmdArgs),
     /// Count shape statistics
     Stats(StatsCmdArgs),
+    /// Prune shapes outside image boundaries
+    Prune(PruneCmdArgs),
 }
 
 #[derive(Debug, Args)]
@@ -495,4 +497,24 @@ pub struct BrowseCmdArgs {
 pub struct StatsCmdArgs {
     /// Input json or ndjson. Specify "-" to use stdin
     pub input: PathBuf,
+}
+
+#[derive(ValueEnum, Debug, Clone, Copy)]
+pub enum PruneMode {
+    /// Remove shape if any point is outside image boundaries
+    Any,
+    /// Remove shape if majority of points are outside image boundaries
+    Majority,
+    /// Remove shape if all points are outside image boundaries
+    All,
+}
+
+#[derive(Debug, Parser)]
+pub struct PruneCmdArgs {
+    /// Input json or ndjson. Specify "-" to use stdin
+    #[clap(default_value = "-")]
+    pub input: PathBuf,
+    /// Prune mode
+    #[clap(short, long, default_value = "any")]
+    pub mode: PruneMode,
 }
