@@ -31,7 +31,7 @@ pub enum Command {
     Remove(RemoveCmdArgs),
     /// Change shape type
     Shapeshift(ShapeshiftCmdArgs),
-    /// Drop duplicates except for the first occurrence
+    /// Drop duplicated entries in ndjson except for the first occurrence
     Drop(DropCmdArgs),
     /// Join ndjson files
     Join(JoinCmdArgs),
@@ -62,6 +62,7 @@ pub enum Command {
 #[derive(Debug, Args)]
 pub struct DropCmdArgs {
     /// Input ndjson. Specify "-" to use stdin
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Key for duplicate checking
     #[clap(long, default_value = "filename")]
@@ -71,6 +72,7 @@ pub struct DropCmdArgs {
 #[derive(Args, Debug)]
 pub struct FilterCmdArgs {
     /// Input ndjson filename. Specify '-' to use stdin
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Text file(s) containing rules
     #[clap(short, long)]
@@ -316,11 +318,11 @@ pub struct InitCmdArgs {
 
 #[derive(Debug, Args)]
 pub struct ArchiveCmdArgs {
-    /// Input directory
-    #[clap(value_hint = ValueHint::DirPath)]
+    /// Input directory or ndjson file. Specify "-" to use stdin as input
+    #[clap(default_value = "-", value_hint = ValueHint::AnyPath)]
     pub input: PathBuf,
     /// Output archive (.tar) or "-" for stdout
-    #[clap(value_hint = ValueHint::FilePath)]
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub output: PathBuf,
 }
 
@@ -335,8 +337,8 @@ pub enum SplitParentHandling {
 #[derive(Debug, Args)]
 pub struct SplitCmdArgs {
     /// Input ndjson filename. Stdin is used if omitted
-    #[clap(value_hint = ValueHint::FilePath)]
-    pub input: Option<PathBuf>,
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
+    pub input: PathBuf,
     /// Output directory. Working directory is used by default
     #[clap(short, long, value_hint = ValueHint::DirPath)]
     pub output: Option<PathBuf>,
@@ -404,6 +406,7 @@ pub enum MissingHandling {
 #[derive(Debug, Args)]
 pub struct ExistCmdArgs {
     /// Input ndjson. Specify "-" to use stdin
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Invert output. i.e. output non-existing files
     #[clap(short = 'v', long)]
@@ -413,12 +416,14 @@ pub struct ExistCmdArgs {
 #[derive(Debug, Args)]
 pub struct CountCmdArgs {
     /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for ndjson input with stdin (for piping).
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
 }
 
 #[derive(Debug, Args)]
 pub struct SortCmdArgs {
-    /// Input json or jsonl/ndjson filename.
+    /// Input json or jsonl/ndjson filename. Specify '-' to use stdin
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
 
     /// Sort by x coordinate instead of y
@@ -496,6 +501,7 @@ pub struct BrowseCmdArgs {
 #[derive(Debug, Parser)]
 pub struct StatsCmdArgs {
     /// Input json or ndjson. Specify "-" to use stdin
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
 }
 
@@ -512,7 +518,7 @@ pub enum PruneMode {
 #[derive(Debug, Parser)]
 pub struct PruneCmdArgs {
     /// Input json or ndjson. Specify "-" to use stdin
-    #[clap(default_value = "-")]
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Prune mode
     #[clap(short, long, default_value = "any")]

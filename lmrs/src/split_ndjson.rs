@@ -6,11 +6,10 @@ use std::io::{BufRead, BufReader};
 use lmrs::cli::SplitCmdArgs as CmdArgs;
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
-    let reader: Box<dyn BufRead> = match args.input {
-        None => Box::new(BufReader::new(std::io::stdin())),
-        Some(filename) => Box::new(BufReader::new(
-            File::open(&filename).with_context(|| format!("Opening {:?}", filename))?,
-        )),
+    let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
+        Box::new(BufReader::new(std::io::stdin()))
+    } else {
+        Box::new(BufReader::new(File::open(&args.input)?))
     };
     let outdir = args.output.unwrap_or_default();
     for line in reader.lines() {
