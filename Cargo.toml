@@ -1,5 +1,5 @@
 [workspace]
-members = ["labelme-rs", "lmrs", "lmrspy"]
+members = ["labelme-rs", "lmrs", "lmrspy", "xtask"]
 default-members = ["lmrs", "labelme-rs"]
 resolver = "2"
 

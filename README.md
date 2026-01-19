@@ -13,6 +13,11 @@ For fish shell:
 ```console
 lmrs complete fish > ~/.config/fish/completions/lmrs.fish
 ```
+## Man files
+```console
+cargo xtask ~/.local/share/man/man1/
+```
+
 
 # Usage
 
