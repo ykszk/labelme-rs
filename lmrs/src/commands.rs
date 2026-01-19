@@ -2,7 +2,8 @@ use mimalloc::MiMalloc;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::{generate, Generator};
 #[macro_use]
 extern crate log;
 use anyhow::Result;
@@ -33,6 +34,10 @@ mod validate;
 use lmrs::cli::Cli;
 use lmrs::cli::Command;
 
+fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
+    generate(gen, cmd, cmd.get_name().to_string(), &mut std::io::stdout());
+}
+
 fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let cli = Cli::parse();
@@ -41,6 +46,11 @@ fn main() -> Result<()> {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
     match cli.command {
+        Command::Complete(args) => {
+            let mut cmd = Cli::command();
+            print_completions(args.shell, &mut cmd);
+            Ok(())
+        }
         Command::Catalog(args) => lms2html::cmd(args),
         Command::Svg(args) => lm2svg::cmd(args),
         Command::Validate(args) => validate::cmd(args),

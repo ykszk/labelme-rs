@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
+use clap_complete::Shell;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -11,6 +12,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Generate shell completions
+    Complete(CompleteArgs),
     /// Create HTML catalog from a labelme directory
     #[clap(aliases = &["html"])]
     Catalog(HtmlCmdArgs),
@@ -57,6 +60,12 @@ pub enum Command {
     Stats(StatsCmdArgs),
     /// Prune shapes outside image boundaries
     Prune(PruneCmdArgs),
+}
+
+#[derive(Parser)]
+pub struct CompleteArgs {
+    /// Shell to generate completions for
+    pub shell: Shell,
 }
 
 #[derive(Debug, Args)]
@@ -164,7 +173,7 @@ pub struct ValidateCmdArgs {
 pub struct HtmlCmdArgs {
     /// Input labelme directory or ndjson with `filename` data (e.g. output of `lmrs ndjson`).
     /// Specify "-" to use stdin as input
-    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
+    #[clap(value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Output html filename
     #[clap(value_hint = ValueHint::FilePath)]
@@ -291,7 +300,7 @@ pub struct MatCmdArgs {
 #[derive(Args, Debug)]
 pub struct ResizeCmdArgs {
     /// Input jsonl/ndjson. Specify `-` to use stdin
-    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
+    #[clap(value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Resize parameter. Specify in imagemagick's `-resize`-like format
     #[clap(value_hint = ValueHint::Other)]

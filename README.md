@@ -11,7 +11,7 @@ cargo install --git https://github.com/ykszk/labelme-rs
 ## Auto-completion
 For fish shell:
 ```console
-cargo xtask complete fish > ~/.config/fish/completions/lmrs.fish
+lmrs complete fish > ~/.config/fish/completions/lmrs.fish
 ```
 
 # Usage

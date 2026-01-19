@@ -1,5 +1,5 @@
 [workspace]
-members = ["labelme-rs", "lmrs", "lmrspy", "xtask"]
+members = ["labelme-rs", "lmrs", "lmrspy"]
 default-members = ["lmrs", "labelme-rs"]
 resolver = "2"
 
@@ -16,7 +16,7 @@ Check the repository (https://github.com/ykszk/labelme-rs) for details.
 
 [workspace.dependencies]
 anyhow = "1.0.100"
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 serde = { version = "1.0.228", features = ["derive"] }
 
 [profile.release]
