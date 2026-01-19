@@ -85,6 +85,7 @@ pub struct FilterCmdArgs {
 #[derive(Args, Debug)]
 pub struct RemoveCmdArgs {
     /// Input ndjson filename. Specify '-' to use stdin
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     #[command(flatten)]
     pub remove: RemoveArgs,
@@ -124,6 +125,7 @@ pub enum ReshapeType {
 #[derive(Args, Debug)]
 pub struct ShapeshiftCmdArgs {
     /// Input ndjson filename. Specify '-' to use stdin
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Label(s) to remove
     #[clap(subcommand)]
@@ -162,6 +164,7 @@ pub struct ValidateCmdArgs {
 pub struct HtmlCmdArgs {
     /// Input labelme directory or ndjson with `filename` data (e.g. output of `lmrs ndjson`).
     /// Specify "-" to use stdin as input
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Output html filename
     #[clap(value_hint = ValueHint::FilePath)]
@@ -226,18 +229,41 @@ pub struct SvgCmdArgs {
 }
 
 #[derive(Args, Debug)]
+#[group(required = true, multiple = true)]
+pub struct SwapArgs {
+    /// New imagePath prefix
+    #[clap(short, long, value_hint = ValueHint::Other)]
+    pub prefix: Option<String>,
+    /// New imagePath suffix (e.g. ".jpg")
+    #[clap(short, long, value_hint = ValueHint::Other)]
+    pub suffix: Option<String>,
+}
+
+impl SwapArgs {
+    pub fn with_prefix(prefix: String) -> Self {
+        Self {
+            prefix: Some(prefix),
+            suffix: None,
+        }
+    }
+    pub fn with_suffix(suffix: String) -> Self {
+        Self {
+            prefix: None,
+            suffix: Some(suffix),
+        }
+    }
+}
+
+#[derive(Args, Debug)]
 pub struct SwapCmdArgs {
     /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for ndjson input with stdin (for piping).
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
-    /// New imagePath prefix (or suffix if `--suffix` is specified)
-    #[clap(value_hint = ValueHint::Other)]
-    pub prefix: String,
     /// Output json filename or output directory. Defaults: <INPUT> for directory or single file input, stdout for jsonl/ndjson input.
     #[clap(value_hint = ValueHint::FilePath)]
     pub output: Option<PathBuf>,
-    /// Swap suffix (e.g. ".jpg") with the given suffix instead of swapping the prefix
-    #[clap(long)]
-    pub suffix: bool,
+    #[clap(flatten)]
+    pub swap: SwapArgs,
 }
 
 #[derive(Args, Debug)]
@@ -265,6 +291,7 @@ pub struct MatCmdArgs {
 #[derive(Args, Debug)]
 pub struct ResizeCmdArgs {
     /// Input jsonl/ndjson. Specify `-` to use stdin
+    #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
     /// Resize parameter. Specify in imagemagick's `-resize`-like format
     #[clap(value_hint = ValueHint::Other)]
