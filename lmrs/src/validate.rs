@@ -58,13 +58,17 @@ impl OrderedWriter {
 }
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
+    log::debug!("Using {} threads", args.threads);
     rayon::ThreadPoolBuilder::new()
         .num_threads(args.threads)
         .build_global()?;
 
     let verbosity = args.verbose;
+    log::debug!("Verbosity level: {}", verbosity);
+    log::debug!("Loading rules from {:?}", args.rules);
     let mut rules = lmrs::load_rules(&args.rules)?;
     for filename in args.additional {
+        log::debug!("Loading additional rules from {:?}", filename);
         let ar = lmrs::load_rules(&filename)?;
         rules.extend(ar);
     }
@@ -75,6 +79,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     }
     let checked_count = Arc::new(AtomicUsize::new(0));
     let valid_count = Arc::new(AtomicUsize::new(0));
+    log::debug!("Collecting JSON files from {:?}", indir);
     let file_list: Result<Vec<_>, _> = glob(
         indir
             .join("**/*.json")
@@ -83,6 +88,10 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     )
     .expect("Failed to read glob pattern")
     .collect();
+    log::debug!(
+        "Found {} JSON files",
+        file_list.as_ref().map(|v| v.len()).unwrap_or(0)
+    );
     let mut file_list = file_list?;
     file_list.sort();
     let file_id_list = file_list.into_iter().enumerate().collect::<Vec<_>>();
@@ -90,6 +99,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     let ignore_set: IndexSet<String> = args.ignore.into_iter().collect();
     let writer = Arc::new(Mutex::new(OrderedWriter::new()));
     file_id_list.into_par_iter().for_each(|(id_path, path)| {
+        log::trace!("Checking {:?}", path);
         let check_result = lmrs::check_json_file(&rules, &asts, &path, &flag_set, &ignore_set);
         let disp_path = path.strip_prefix(&args.input).unwrap_or(path.as_path());
         match check_result {
