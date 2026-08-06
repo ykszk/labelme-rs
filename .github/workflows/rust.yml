@@ -7,7 +7,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  CMAKE_GENERATOR: "Visual Studio 17 2022"
+  CMAKE_GENERATOR: "Ninja"
 
 jobs:
   build:
@@ -16,6 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v7
+    - name: Install Ninja
+      run: choco install ninja -y
+    - uses: ilammy/msvc-dev-cmd@v1
     - name: Run tests
       run: cargo test --all
     - name: Build
