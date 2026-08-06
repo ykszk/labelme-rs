@@ -283,6 +283,10 @@ pub struct MatCmdArgs {
     #[clap(value_hint = ValueHint::FilePath)]
     pub output: Option<PathBuf>,
 
+    /// Input and output in ndjson
+    #[clap(long)]
+    pub ndjson: bool,
+
     /// 3x3 transformation matrix
     #[clap(short, long, value_hint = ValueHint::Other, allow_hyphen_values=true, num_args=9, value_name="x", conflicts_with_all = &["translate", "scale", "rotate"])]
     pub matrix: Option<Vec<f64>>,

@@ -1,8 +1,8 @@
 use anyhow::Result;
-use labelme_rs::{serde_json, LabelMeData};
+use labelme_rs::{serde_json, LabelMeData, LabelMeDataLine};
 use lmrs::cli::MatCmdArgs as CmdArgs;
 use std::fs::File;
-use std::io::{stdout, BufReader, BufWriter};
+use std::io::{stdout, BufRead, BufReader, BufWriter};
 
 pub fn cmd(args: CmdArgs) -> Result<()> {
     // 3 x 3 matrix as an array
@@ -45,15 +45,45 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
 
     debug!("Matrix: {:?}", mat);
 
-    let mut data: LabelMeData = if args.input.as_os_str() == "-" {
-        // read from stdin
-        let reader = BufReader::new(std::io::stdin());
-        let lm_data: LabelMeData = serde_json::from_reader(reader)?;
-        lm_data
+    if args.ndjson {
+        let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
+            Box::new(BufReader::new(std::io::stdin()))
+        } else {
+            Box::new(BufReader::new(File::open(&args.input)?))
+        };
+        for line in reader.lines() {
+            let line = line?;
+            let mut lm_line: LabelMeDataLine = serde_json::from_str(&line)?;
+            apply_mat(mat, &mut lm_line.content);
+            let writer = stdout();
+            serde_json::to_writer(writer.lock(), &lm_line)?;
+            println!();
+        }
     } else {
-        LabelMeData::try_from(args.input.as_path())?
-    };
+        let mut data: LabelMeData = if args.input.as_os_str() == "-" {
+            // read from stdin
+            let reader = BufReader::new(std::io::stdin());
+            let lm_data: LabelMeData = serde_json::from_reader(reader)?;
+            lm_data
+        } else {
+            LabelMeData::try_from(args.input.as_path())?
+        };
 
+        apply_mat(mat, &mut data);
+
+        if let Some(output) = args.output {
+            let writer = BufWriter::new(File::create(output)?);
+            serde_json::to_writer_pretty(writer, &data)?;
+        } else {
+            let writer = stdout();
+            serde_json::to_writer_pretty(writer.lock(), &data)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn apply_mat(mat: [f64; 9], data: &mut LabelMeData) {
     for shape in &mut data.shapes {
         for point in &mut shape.points {
             let x = point.0;
@@ -65,14 +95,4 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             point.1 = new_y / w;
         }
     }
-
-    if let Some(output) = args.output {
-        let writer = BufWriter::new(File::create(output)?);
-        serde_json::to_writer_pretty(writer, &data)?;
-    } else {
-        let writer = stdout();
-        serde_json::to_writer_pretty(writer.lock(), &data)?;
-    }
-
-    Ok(())
 }
