@@ -308,9 +308,10 @@ pub fn img2base64(
             Ok(Ok(writer)) => return Ok(base64::engine::general_purpose::STANDARD.encode(writer)),
             Ok(Err(e)) => return Err(e.into()),
             Err(e) => {
-                return Err(LabelMeDataError::IoError(std::io::Error::other(
-                    format!("{:?}", e),
-                )))
+                return Err(LabelMeDataError::IoError(std::io::Error::other(format!(
+                    "{:?}",
+                    e
+                ))))
             }
         };
     }
