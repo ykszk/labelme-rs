@@ -1,0 +1,10 @@
+{
+  "name": "lmrs",
+  "version": "0.14.4",
+  "description": "Work with labelme annotations using the lmrs CLI",
+  "author": {
+    "name": "Yuki Suzuki"
+  },
+  "repository": "https://github.com/ykszk/labelme-rs",
+  "license": "MIT"
+}

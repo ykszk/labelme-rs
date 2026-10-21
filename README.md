@@ -18,6 +18,21 @@ lmrs complete fish > ~/.config/fish/completions/lmrs.fish
 cargo xtask ~/.local/share/man/man1/
 ```
 
+## Agent skill
+An agent skill that teaches Claude Code how to use `lmrs` is available as a plugin.
+Install it in Claude Code:
+```
+/plugin install lmrs --marketplace ykszk/labelme-rs
+```
+On older versions of Claude Code:
+```
+/plugin marketplace add ykszk/labelme-rs
+/plugin install lmrs@labelme-rs
+```
+Run `/plugin marketplace update labelme-rs` to get the latest skill.
+
+The skill itself is [plugin/skills/lmrs/SKILL.md](plugin/skills/lmrs/SKILL.md) and can be copied to other agents supporting Agent Skills.
+
 
 # Usage
 

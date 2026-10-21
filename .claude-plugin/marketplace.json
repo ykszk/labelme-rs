@@ -1,0 +1,14 @@
+{
+  "name": "labelme-rs",
+  "owner": {
+    "name": "Yuki Suzuki"
+  },
+  "description": "Agent skills for labelme-rs tools",
+  "plugins": [
+    {
+      "name": "lmrs",
+      "source": "./plugin",
+      "description": "Work with labelme annotations using the lmrs CLI"
+    }
+  ]
+}
