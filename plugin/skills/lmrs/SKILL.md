@@ -8,6 +8,8 @@ description: Inspect, validate, filter and transform labelme annotation JSON fil
 `lmrs` is a CLI for labelme json files (https://github.com/ykszk/labelme-rs).
 Run `lmrs <COMMAND> --help` for exact arguments before using a command for the first time in a session; options change between versions.
 
+This skill was written for lmrs 0.14.4. Run `lmrs --version` once per session; if it is older, mention it to the user and rely on `--help` where they differ.
+
 If `lmrs` is not installed, tell the user and point them to the Releases page or `cargo install --git https://github.com/ykszk/labelme-rs`.
 
 ## Core workflow: ndjson pipelines
@@ -69,6 +71,7 @@ Use them with `validate` (report) or `filter -r` (keep valid lines).
 ## Cautions
 
 - `swap` on a directory or single json **overwrites the input files** when OUTPUT is omitted. Preview a single file with `lmrs swap --prefix X file.json -`, or work on ndjson and write to a new directory.
+- `validate DIR` searches subdirectories recursively (`**/*.json`), but `lmrs ndjson DIR` only reads the top level by default. Use `lmrs ndjson DIR -g '**/*.json'` when comparing their results, or check subdirectories for stray files.
 - `split` does not overwrite existing files unless `--overwrite` is given.
 - Paths in `imagePath` are resolved relative to the json/ndjson file; with stdin input, relative to the current directory.
 - Leave the user's original annotations untouched unless they ask for in-place changes: write results to a new file or directory.
