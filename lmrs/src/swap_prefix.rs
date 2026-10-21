@@ -1,4 +1,4 @@
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use labelme_rs::{serde_json, LabelMeData, LabelMeDataLine};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -29,7 +29,7 @@ impl Swap for LabelMeData {
         if prefix.is_empty() {
             self.imagePath = file_name.into();
         } else {
-            self.imagePath = format!("{}/{}", prefix, file_name);
+            self.imagePath = format!("{}/{}", prefix.trim_end_matches('/'), file_name);
         }
         Ok(())
     }
@@ -93,6 +93,24 @@ fn test_swap_prefix() -> Result<()> {
     .is_ok());
     let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
     assert_eq!("stem.jpg", swapped_data.imagePath);
+    assert!(process_json_file(
+        &filename,
+        &output_filename,
+        &SwapArgs::with_prefix("/".to_string()),
+        pretty
+    )
+    .is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
+    assert_eq!("/stem.jpg", swapped_data.imagePath);
+    assert!(process_json_file(
+        &filename,
+        &output_filename,
+        &SwapArgs::with_prefix("../images/".to_string()),
+        pretty
+    )
+    .is_ok());
+    let swapped_data = labelme_rs::LabelMeData::try_from(output_filename.as_path()).unwrap();
+    assert_eq!("../images/stem.jpg", swapped_data.imagePath);
 
     Ok(())
 }
@@ -160,16 +178,25 @@ fn process_json_file(
     } else {
         serde_json::to_string(&lm_data)?
     };
-    let mut writer = std::io::BufWriter::new(std::fs::File::create(output)?);
+    let mut writer: Box<dyn Write> = if output.as_os_str() == "-" {
+        Box::new(BufWriter::new(std::io::stdout()))
+    } else {
+        Box::new(BufWriter::new(File::create(output).with_context(|| {
+            format!("Failed to create \"{}\"", output.to_string_lossy())
+        })?))
+    };
     writeln!(writer, "{}", line)?;
     Ok(())
 }
 
+fn has_extension(path: &Path, extensions: &[&str]) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| extensions.iter().any(|e| ext.eq_ignore_ascii_case(e)))
+}
+
 pub fn cmd(args: CmdArgs) -> Result<()> {
     let mut swap_args = args.swap;
-    swap_args.prefix = swap_args
-        .prefix
-        .map(|s| s.trim_end_matches('/').to_string());
     swap_args.suffix = swap_args
         .suffix
         .map(|s| s.trim_start_matches('.').to_string());
@@ -211,21 +238,19 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         bar.finish();
     } else {
         debug!("File or stdin input");
-        if args.input.extension().is_some_and(|ext| ext == "json") {
+        if has_extension(&args.input, &["json"]) {
             // single json
             let output = args.output.unwrap_or_else(|| args.input.clone());
             process_json_file(&args.input, &output, &swap_args, true)?;
-        } else if args.input.as_os_str() == "-"
-            || args
-                .input
-                .extension()
-                .is_some_and(|ext| ext == "jsonl" || ext == "ndjson")
+        } else if args.input.as_os_str() == "-" || has_extension(&args.input, &["jsonl", "ndjson"])
         {
             // jsonl or ndjson
             let reader: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
                 Box::new(BufReader::new(std::io::stdin()))
             } else {
-                Box::new(BufReader::new(File::open(&args.input)?))
+                Box::new(BufReader::new(File::open(&args.input).with_context(
+                    || format!("Failed to open \"{}\"", args.input.to_string_lossy()),
+                )?))
             };
             let mut writer: Box<dyn Write> = match args.output {
                 Some(x) => {
@@ -249,7 +274,15 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
                 writeln!(writer, "{}", serde_json::to_string(&lm_data_line)?)?;
             }
         } else {
-            panic!("Unknown input type: {:?}", args.input);
+            ensure!(
+                args.input.exists(),
+                "Input \"{}\" does not exist.",
+                args.input.to_string_lossy()
+            );
+            bail!(
+                "Unknown input type \"{}\": expected a directory, .json, .jsonl, .ndjson, or \"-\".",
+                args.input.to_string_lossy()
+            );
         }
     }
     Ok(())

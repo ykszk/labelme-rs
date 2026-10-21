@@ -268,7 +268,7 @@ pub struct SwapCmdArgs {
     /// Input json or jsonl/ndjson filename or json containing directory. Specify `-` for ndjson input with stdin (for piping).
     #[clap(default_value = "-", value_hint = ValueHint::FilePath)]
     pub input: PathBuf,
-    /// Output json filename or output directory. Defaults: <INPUT> for directory or single file input, stdout for jsonl/ndjson input.
+    /// Output directory for directory input, json filename for single json input, or jsonl/ndjson filename for jsonl/ndjson input. Specify `-` to use stdout for json or jsonl/ndjson input. Defaults: <INPUT> for directory or single json input, stdout for jsonl/ndjson input.
     #[clap(value_hint = ValueHint::FilePath)]
     pub output: Option<PathBuf>,
     #[clap(flatten)]
