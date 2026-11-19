@@ -92,6 +92,7 @@ mod tests {
             imageData: None,
             imageHeight: 100,
             imageWidth: 100,
+            other_data: Default::default(),
         };
 
         let pruned = prune_points(data.clone(), PruneMode::Any);
@@ -130,6 +131,7 @@ mod tests {
             imageData: None,
             imageHeight: 100,
             imageWidth: 100,
+            other_data: Default::default(),
         };
 
         let pruned = prune_points(data, PruneMode::Any);

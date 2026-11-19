@@ -21,6 +21,8 @@ use dicom_pixeldata::{ConvertOptions, PixelDecoder, VoiLutOption};
 extern crate lazy_static;
 
 pub type Flags = IndexMap<String, bool>;
+/// Top-level json keys of a labelme file other than the standard ones, kept as they are.
+pub type OtherData = serde_json::Map<String, serde_json::Value>;
 pub type FlagSet = IndexSet<String>;
 pub type Point = (f64, f64);
 
@@ -43,6 +45,9 @@ pub struct LabelMeData {
     pub imageData: Option<String>,
     pub imageHeight: usize,
     pub imageWidth: usize,
+    /// Other top-level keys, written back after the standard ones (as labelme's `otherData`).
+    #[serde(flatten)]
+    pub other_data: OtherData,
 }
 
 /// Customize deserialization to hook [`LabelMeData::standardize`]
@@ -61,6 +66,8 @@ impl<'de> Deserialize<'de> for LabelMeData {
             imageData: Option<String>,
             imageHeight: usize,
             imageWidth: usize,
+            #[serde(flatten)]
+            other_data: OtherData,
         }
 
         let helper = LabelMeDataHelper::deserialize(deserializer)?;
@@ -73,6 +80,7 @@ impl<'de> Deserialize<'de> for LabelMeData {
             imageData: helper.imageData,
             imageHeight: helper.imageHeight,
             imageWidth: helper.imageWidth,
+            other_data: helper.other_data,
         };
 
         data.standardize();
@@ -359,6 +367,7 @@ impl LabelMeData {
             imageData: None,
             imageHeight: height,
             imageWidth: width,
+            other_data: OtherData::new(),
         }
     }
 
@@ -814,6 +823,22 @@ impl ColorCycler {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn other_top_level_keys_round_trip() {
+        let json = r#"{"version":"5.0.1","flags":{},"shapes":[],"imagePath":"a.png","imageData":null,"imageHeight":2,"imageWidth":3,"curves":{"MT":[{"sup":4,"inf":11},null]},"note":"x"}"#;
+        let data: super::LabelMeData = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            data.other_data.keys().collect::<Vec<_>>(),
+            ["curves", "note"]
+        );
+        assert_eq!(serde_json::to_string(&data).unwrap(), json);
+
+        let plain = r#"{"version":"5.0.1","flags":{},"shapes":[],"imagePath":"a.png","imageData":null,"imageHeight":2,"imageWidth":3}"#;
+        let data: super::LabelMeData = serde_json::from_str(plain).unwrap();
+        assert!(data.other_data.is_empty());
+        assert_eq!(serde_json::to_string(&data).unwrap(), plain);
+    }
+
     use super::*;
     use anyhow::{Context, Result};
 
