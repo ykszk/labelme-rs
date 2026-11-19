@@ -9,4 +9,3 @@ edition.workspace = true
 lmrs = { path = "../lmrs" }
 clap = { version = "4.5.0", features = ["derive", "string"] }
 clap_mangen = "0.2.31"
-home = "0.5.9"

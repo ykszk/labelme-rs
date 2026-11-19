@@ -16,7 +16,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         let json_data: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&line?)?;
         let v_filename = json_data
             .get(&args.filename)
-            .with_context(|| format!("Key {} not found", &args.filename))?;
+            .with_context(|| format!("Key {} not found", args.filename))?;
         let serde_json::Value::String(filename) = v_filename else {
             panic!("expected String")
         };
