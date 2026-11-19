@@ -414,13 +414,10 @@ impl LabelMeData {
         map
     }
 
-    /// Scale points, imageWidth and imageHeight
+    /// Scale points, masks, imageWidth and imageHeight
     pub fn scale(&mut self, scale: f64) {
         for shape in &mut self.shapes {
-            for p in &mut shape.points {
-                p.0 *= scale;
-                p.1 *= scale;
-            }
+            shape.scale_translate(scale, scale, 0.0, 0.0);
         }
         self.imageWidth = (self.imageWidth as f64 * scale) as _;
         self.imageHeight = (self.imageHeight as f64 * scale) as _;
@@ -744,10 +741,10 @@ impl LabelMeData {
                     .iter()
                     .filter(|s| s.shape_type == "mask" && s.label == *label);
                 for shape in shapes {
-                    let (Some(origin), Some(mask)) = (shape.points.first(), &shape.mask) else {
+                    let Some(origin) = shape.points.first() else {
                         continue;
                     };
-                    let Some((png, width, height)) = mask_to_white_png(mask) else {
+                    let Some((png, width, height)) = mask_to_white_png(shape) else {
                         continue;
                     };
                     let id = format!("labelme-mask-{n_masks}");
@@ -783,25 +780,74 @@ impl LabelMeData {
     }
 }
 
-/// Re-encode a labelme mask (a base64 PNG of 0 and 1) with 255 for the masked pixels, so that
-/// it can serve as an SVG luminance mask. Returns the base64 PNG and its size.
-fn mask_to_white_png(mask_b64: &str) -> Option<(String, u32, u32)> {
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(mask_b64)
+fn png_b64(img: image::GrayImage) -> Option<String> {
+    let mut png = Cursor::new(Vec::new());
+    DynamicImage::ImageLuma8(img)
+        .write_to(&mut png, image::ImageFormat::Png)
         .ok()?;
-    let mut mask = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
-        .ok()?
-        .to_luma8();
+    Some(base64::engine::general_purpose::STANDARD.encode(png.into_inner()))
+}
+
+impl Shape {
+    /// The mask of a `mask` shape: one pixel per image pixel from the first point, nonzero
+    /// where masked. `None` without a mask or if it cannot be decoded.
+    pub fn mask_image(&self) -> Option<image::GrayImage> {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(self.mask.as_ref()?)
+            .ok()?;
+        let img = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).ok()?;
+        Some(img.to_luma8())
+    }
+
+    /// Store `mask` as the mask of this shape (a base64 PNG, as labelme saves it).
+    pub fn set_mask_image(&mut self, mask: image::GrayImage) {
+        self.mask = png_b64(mask);
+    }
+
+    /// Map the points by `x' = sx·x + tx`, `y' = sy·y + ty`, with positive scales.
+    ///
+    /// The mask image of a `mask` shape follows: it is resized (nearest neighbor, keeping
+    /// labelme's 0 and 1). As in labelme, the mask starts at the first point, and the points
+    /// are the indices of its first and last pixels, so pixel `i` covers `[x0 + i, x0 + i + 1)`.
+    /// Without a decodable mask, only the points are mapped.
+    ///
+    /// # Panics
+    /// If a scale is not positive (a mask image cannot be mirrored this way).
+    pub fn scale_translate(&mut self, sx: f64, sy: f64, tx: f64, ty: f64) {
+        assert!(sx > 0.0 && sy > 0.0, "scales must be positive: {sx}, {sy}");
+        let mask = self.mask_image().filter(|_| !self.points.is_empty());
+        let Some(mut img) = mask else {
+            for p in &mut self.points {
+                p.0 = sx * p.0 + tx;
+                p.1 = sy * p.1 + ty;
+            }
+            return;
+        };
+        let (w, h) = img.dimensions();
+        let new_w = ((w as f64 * sx.abs()).round() as u32).max(1);
+        let new_h = ((h as f64 * sy.abs()).round() as u32).max(1);
+        if (new_w, new_h) != (w, h) {
+            img = image::imageops::resize(&img, new_w, new_h, image::imageops::FilterType::Nearest);
+        }
+        let (x0, y0) = self.points[0];
+        let origin = (sx * x0 + tx, sy * y0 + ty);
+        self.points = vec![
+            origin,
+            (origin.0 + (new_w - 1) as f64, origin.1 + (new_h - 1) as f64),
+        ];
+        self.set_mask_image(img);
+    }
+}
+
+/// The mask of `shape` with 255 for the masked pixels (labelme saves 0 and 1), so that it can
+/// serve as an SVG luminance mask. Returns the base64 PNG and its size.
+fn mask_to_white_png(shape: &Shape) -> Option<(String, u32, u32)> {
+    let mut mask = shape.mask_image()?;
     for p in mask.pixels_mut() {
         p.0[0] = if p.0[0] > 0 { 255 } else { 0 };
     }
     let (width, height) = mask.dimensions();
-    let mut png = Cursor::new(Vec::new());
-    DynamicImage::ImageLuma8(mask)
-        .write_to(&mut png, image::ImageFormat::Png)
-        .ok()?;
-    let png = base64::engine::general_purpose::STANDARD.encode(png.into_inner());
-    Some((png, width, height))
+    Some((png_b64(mask)?, width, height))
 }
 
 impl TryFrom<&str> for LabelMeData {
@@ -951,6 +997,34 @@ impl ColorCycler {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn scaling_resizes_masks_with_their_points() {
+        let mut shape = super::Shape {
+            label: "m".into(),
+            points: vec![(10.0, 20.0), (11.0, 21.0)],
+            shape_type: "mask".into(),
+            ..Default::default()
+        };
+        shape.set_mask_image(image::GrayImage::from_raw(2, 2, vec![1, 0, 0, 1]).unwrap());
+        let mut data = super::LabelMeData {
+            shapes: vec![shape],
+            imageWidth: 100,
+            imageHeight: 100,
+            ..Default::default()
+        };
+        data.scale(2.0);
+        let shape = &data.shapes[0];
+        // The last pixel 11 covers [11, 12), so the new last pixel is 23.
+        assert_eq!(shape.points, [(20.0, 40.0), (23.0, 43.0)]);
+        let mask = shape.mask_image().unwrap();
+        assert_eq!(mask.dimensions(), (4, 4));
+        // Still labelme's 0 and 1, each pixel doubled.
+        assert_eq!(
+            mask.into_raw(),
+            [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1]
+        );
+    }
+
     #[test]
     fn svg_draws_oriented_rectangles_and_masks() {
         use base64::Engine;

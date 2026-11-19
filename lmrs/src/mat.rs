@@ -54,7 +54,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
         for line in reader.lines() {
             let line = line?;
             let mut lm_line: LabelMeDataLine = serde_json::from_str(&line)?;
-            apply_mat(mat, &mut lm_line.content);
+            apply_mat(mat, &mut lm_line.content)?;
             let writer = stdout();
             serde_json::to_writer(writer.lock(), &lm_line)?;
             println!();
@@ -69,7 +69,7 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
             LabelMeData::try_from(args.input.as_path())?
         };
 
-        apply_mat(mat, &mut data);
+        apply_mat(mat, &mut data)?;
 
         if let Some(output) = args.output {
             let writer = BufWriter::new(File::create(output)?);
@@ -83,7 +83,27 @@ pub fn cmd(args: CmdArgs) -> Result<()> {
     Ok(())
 }
 
-fn apply_mat(mat: [f64; 9], data: &mut LabelMeData) {
+/// Transform the points. Masks follow translations and positive axis-aligned scaling;
+/// other transformations of data with masks are an error, as a mask image cannot follow them.
+fn apply_mat(mat: [f64; 9], data: &mut LabelMeData) -> Result<()> {
+    let w = mat[8];
+    let scale_translate = mat[1] == 0.0
+        && mat[3] == 0.0
+        && mat[6] == 0.0
+        && mat[7] == 0.0
+        && mat[0] / w > 0.0
+        && mat[4] / w > 0.0;
+    if scale_translate {
+        for shape in &mut data.shapes {
+            shape.scale_translate(mat[0] / w, mat[4] / w, mat[2] / w, mat[5] / w);
+        }
+        return Ok(());
+    }
+    anyhow::ensure!(
+        data.shapes.iter().all(|s| s.mask.is_none()),
+        "Cannot transform mask shapes with this matrix: only translation and positive \
+         scaling are supported"
+    );
     for shape in &mut data.shapes {
         for point in &mut shape.points {
             let x = point.0;
@@ -93,6 +113,52 @@ fn apply_mat(mat: [f64; 9], data: &mut LabelMeData) {
             let w = mat[6] * x + mat[7] * y + mat[8];
             point.0 = new_x / w;
             point.1 = new_y / w;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use labelme_rs::Shape;
+
+    fn with_mask() -> LabelMeData {
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/data/Mandrill.json");
+        let mut data = LabelMeData::try_from(path.as_path()).unwrap();
+        data.shapes.retain(|s| s.shape_type == "mask");
+        assert_eq!(data.shapes.len(), 1);
+        data
+    }
+
+    fn mask_size(shape: &Shape) -> (u32, u32) {
+        shape.mask_image().unwrap().dimensions()
+    }
+
+    #[test]
+    fn masks_follow_translation_and_scaling() {
+        let mut data = with_mask();
+        let (w, h) = mask_size(&data.shapes[0]);
+        let origin = data.shapes[0].points[0];
+        apply_mat([2.0, 0.0, 5.0, 0.0, 3.0, -1.0, 0.0, 0.0, 1.0], &mut data).unwrap();
+        let shape = &data.shapes[0];
+        assert_eq!(
+            shape.points[0],
+            (origin.0 * 2.0 + 5.0, origin.1 * 3.0 - 1.0)
+        );
+        assert_eq!(mask_size(shape), (w * 2, h * 3));
+    }
+
+    #[test]
+    fn masks_refuse_rotation_and_flips() {
+        let rotation = [0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0];
+        let flip = [-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        for mat in [rotation, flip] {
+            let mut data = with_mask();
+            let before = data.clone();
+            assert!(apply_mat(mat, &mut data).is_err());
+            assert_eq!(data, before, "nothing is changed");
         }
     }
 }
