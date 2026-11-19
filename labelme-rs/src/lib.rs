@@ -40,7 +40,7 @@ fn is_false(b: &bool) -> bool {
 }
 
 /// A labelme shape. The fields follow labelme's write order; `shape_type` is one of
-/// polygon, rectangle, oriented_rectangle, point, line, circle, linestrip, points and mask.
+/// polygon, rectangle, oriented_rectangle, point, line, circle, linestrip and mask.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct Shape {
     pub label: String,
@@ -702,8 +702,106 @@ impl LabelMeData {
                 document = document.add(group);
             }
         }
+        if let Some(rectangle_data) = shape_map.get("oriented_rectangle") {
+            for (label, rectangles) in rectangle_data {
+                let color = label_colors
+                    .get(*label)
+                    .map_or_else(|| color_cycler.cycle(), |s| s.as_str());
+                let mut group = element::Group::new()
+                    .set("class", format!("oriented_rectangle {}", label))
+                    .set("fill", "none")
+                    .set("stroke", color)
+                    .set("stroke-width", line_width);
+                for rectangle in rectangles {
+                    if rectangle.len() != 4 {
+                        continue;
+                    }
+                    let points = rectangle
+                        .iter()
+                        .map(|p| format!("{} {}", p.0, p.1))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    group = group.add(element::Polygon::new().set("points", points));
+                }
+                document = document.add(group);
+            }
+        }
+        if let Some(mask_data) = shape_map.get("mask") {
+            // The mask PNG lies at the first point, one mask pixel per image pixel (as labelme
+            // draws it), and is filled with the label color through an SVG mask.
+            let mut defs = element::Definitions::new();
+            let mut n_masks = 0;
+            for label in mask_data.keys() {
+                let color = label_colors
+                    .get(*label)
+                    .map_or_else(|| color_cycler.cycle(), |s| s.as_str());
+                let mut group = element::Group::new()
+                    .set("class", format!("mask {}", label))
+                    .set("fill", color)
+                    .set("fill-opacity", 0.5);
+                let shapes = self
+                    .shapes
+                    .iter()
+                    .filter(|s| s.shape_type == "mask" && s.label == *label);
+                for shape in shapes {
+                    let (Some(origin), Some(mask)) = (shape.points.first(), &shape.mask) else {
+                        continue;
+                    };
+                    let Some((png, width, height)) = mask_to_white_png(mask) else {
+                        continue;
+                    };
+                    let id = format!("labelme-mask-{n_masks}");
+                    n_masks += 1;
+                    defs = defs.add(
+                        element::Mask::new()
+                            .set("id", id.as_str())
+                            .set("maskUnits", "userSpaceOnUse")
+                            .add(
+                                element::Image::new()
+                                    .set("x", origin.0)
+                                    .set("y", origin.1)
+                                    .set("width", width)
+                                    .set("height", height)
+                                    .set("image-rendering", "pixelated")
+                                    .set("xlink:href", format!("data:image/png;base64,{png}")),
+                            ),
+                    );
+                    group = group.add(
+                        element::Rectangle::new()
+                            .set("x", origin.0)
+                            .set("y", origin.1)
+                            .set("width", width)
+                            .set("height", height)
+                            .set("mask", format!("url(#{id})")),
+                    );
+                }
+                document = document.add(group);
+            }
+            document = document.add(defs);
+        }
         document
     }
+}
+
+/// Re-encode a labelme mask (a base64 PNG of 0 and 1) with 255 for the masked pixels, so that
+/// it can serve as an SVG luminance mask. Returns the base64 PNG and its size.
+fn mask_to_white_png(mask_b64: &str) -> Option<(String, u32, u32)> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(mask_b64)
+        .ok()?;
+    let mut mask = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
+        .ok()?
+        .to_luma8();
+    for p in mask.pixels_mut() {
+        p.0[0] = if p.0[0] > 0 { 255 } else { 0 };
+    }
+    let (width, height) = mask.dimensions();
+    let mut png = Cursor::new(Vec::new());
+    DynamicImage::ImageLuma8(mask)
+        .write_to(&mut png, image::ImageFormat::Png)
+        .ok()?;
+    let png = base64::engine::general_purpose::STANDARD.encode(png.into_inner());
+    Some((png, width, height))
 }
 
 impl TryFrom<&str> for LabelMeData {
@@ -853,6 +951,48 @@ impl ColorCycler {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn svg_draws_oriented_rectangles_and_masks() {
+        use base64::Engine;
+        // A 2x2 mask of 0 and 1, as labelme saves it.
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageLuma8(
+            image::GrayImage::from_raw(2, 2, vec![1, 0, 0, 1]).unwrap(),
+        )
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+        let mask = base64::engine::general_purpose::STANDARD.encode(png.into_inner());
+        let shape = |label: &str, shape_type: &str, points: Vec<super::Point>| super::Shape {
+            label: label.into(),
+            points,
+            shape_type: shape_type.into(),
+            ..Default::default()
+        };
+        let data = super::LabelMeData {
+            shapes: vec![
+                shape(
+                    "o",
+                    "oriented_rectangle",
+                    vec![(0.0, 0.0), (4.0, 1.0), (3.0, 5.0), (-1.0, 4.0)],
+                ),
+                super::Shape {
+                    mask: Some(mask),
+                    ..shape("m", "mask", vec![(5.0, 6.0), (7.0, 8.0)])
+                },
+            ],
+            imageWidth: 10,
+            imageHeight: 10,
+            ..Default::default()
+        };
+        let img = image::DynamicImage::new_luma8(10, 10);
+        let svg = data.to_svg(&Default::default(), 1, 1, &img).to_string();
+        assert!(svg.contains(r#"points="0 0 4 1 3 5 -1 4""#), "{svg}");
+        assert!(svg.contains(r#"<mask id="labelme-mask-0""#), "{svg}");
+        assert!(svg.contains(r##"mask="url(#labelme-mask-0)""##), "{svg}");
+        assert!(svg.contains(r#"x="5" y="6""#), "{svg}");
+        assert!(svg.contains(r#"width="2""#), "{svg}");
+    }
+
     #[test]
     fn shapes_keep_labelme_fields_and_other_keys() {
         let shape = r#"{"label":"a","points":[[1.0,2.0],[3.0,4.0]],"group_id":null,"description":"note","shape_type":"mask","flags":{},"mask":"iVBORw0KGgo=","locked":true,"score":0.9}"#;
