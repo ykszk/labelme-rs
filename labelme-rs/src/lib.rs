@@ -21,18 +21,46 @@ use dicom_pixeldata::{ConvertOptions, PixelDecoder, VoiLutOption};
 extern crate lazy_static;
 
 pub type Flags = IndexMap<String, bool>;
-/// Top-level json keys of a labelme file other than the standard ones, kept as they are.
+/// Json keys of a labelme file or shape other than the standard ones, kept as they are.
 pub type OtherData = serde_json::Map<String, serde_json::Value>;
 pub type FlagSet = IndexSet<String>;
 pub type Point = (f64, f64);
 
+/// Deserialize `null` (or, with `#[serde(default)]`, a missing key) as the default value.
+fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+/// A labelme shape. The fields follow labelme's write order; `shape_type` is one of
+/// polygon, rectangle, oriented_rectangle, point, line, circle, linestrip, points and mask.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct Shape {
     pub label: String,
     pub points: Vec<Point>,
+    #[serde(default)]
     pub group_id: Option<usize>,
+    #[serde(default, deserialize_with = "null_as_default")]
+    pub description: String,
     pub shape_type: String,
+    #[serde(default, deserialize_with = "null_as_default")]
     pub flags: Flags,
+    /// Base64 PNG of the mask of a `mask` shape.
+    #[serde(default)]
+    pub mask: Option<String>,
+    /// Written only when set, as labelme does.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
+    /// Other keys of the shape, kept as they are.
+    #[serde(flatten)]
+    pub other_data: OtherData,
 }
 
 #[derive(Serialize, Debug, Clone, Default, PartialEq)]
@@ -59,7 +87,10 @@ impl<'de> Deserialize<'de> for LabelMeData {
         #[derive(Deserialize)]
         #[allow(non_snake_case)]
         struct LabelMeDataHelper {
+            // labelme never reads the version and treats missing or null flags as empty.
+            #[serde(default)]
             version: String,
+            #[serde(default, deserialize_with = "null_as_default")]
             flags: Flags,
             shapes: Vec<Shape>,
             imagePath: String,
@@ -354,9 +385,8 @@ impl LabelMeData {
             .map(|(p, l)| Shape {
                 label: l.into(),
                 points: vec![*p],
-                group_id: None,
                 shape_type: "point".into(),
-                flags: Flags::new(),
+                ..Default::default()
             })
             .collect();
         Self {
@@ -823,6 +853,36 @@ impl ColorCycler {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn shapes_keep_labelme_fields_and_other_keys() {
+        let shape = r#"{"label":"a","points":[[1.0,2.0],[3.0,4.0]],"group_id":null,"description":"note","shape_type":"mask","flags":{},"mask":"iVBORw0KGgo=","locked":true,"score":0.9}"#;
+        let parsed: super::Shape = serde_json::from_str(shape).unwrap();
+        assert_eq!(parsed.description, "note");
+        assert_eq!(parsed.mask.as_deref(), Some("iVBORw0KGgo="));
+        assert!(parsed.locked);
+        assert_eq!(parsed.other_data["score"], 0.9);
+        assert_eq!(serde_json::to_string(&parsed).unwrap(), shape);
+
+        // labelme's defaults; `locked` is written only when set.
+        let minimal = r#"{"label":"a","points":[[1.0,2.0]],"shape_type":"point","flags":null,"description":null}"#;
+        let parsed: super::Shape = serde_json::from_str(minimal).unwrap();
+        assert_eq!(
+            serde_json::to_string(&parsed).unwrap(),
+            r#"{"label":"a","points":[[1.0,2.0]],"group_id":null,"description":"","shape_type":"point","flags":{},"mask":null}"#
+        );
+    }
+
+    #[test]
+    fn missing_version_and_flags_are_accepted() {
+        for json in [
+            r#"{"shapes":[],"imagePath":"a.png","imageData":null,"imageHeight":2,"imageWidth":3}"#,
+            r#"{"version":"5.0.1","flags":null,"shapes":[],"imagePath":"a.png","imageData":null,"imageHeight":2,"imageWidth":3}"#,
+        ] {
+            let data: super::LabelMeData = serde_json::from_str(json).unwrap();
+            assert!(data.flags.is_empty());
+        }
+    }
+
     #[test]
     fn other_top_level_keys_round_trip() {
         let json = r#"{"version":"5.0.1","flags":{},"shapes":[],"imagePath":"a.png","imageData":null,"imageHeight":2,"imageWidth":3,"curves":{"MT":[{"sup":4,"inf":11},null]},"note":"x"}"#;

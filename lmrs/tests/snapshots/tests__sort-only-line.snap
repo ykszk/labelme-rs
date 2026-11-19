@@ -1,6 +1,5 @@
 ---
 source: lmrs/tests/tests.rs
-assertion_line: 197
 expression: "str::from_utf8(&output.stdout)?"
 ---
 {
@@ -16,8 +15,10 @@ expression: "str::from_utf8(&output.stdout)?"
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "point",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "l",
@@ -28,8 +29,10 @@ expression: "str::from_utf8(&output.stdout)?"
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "point",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "m",
@@ -40,8 +43,10 @@ expression: "str::from_utf8(&output.stdout)?"
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "point",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "m",
@@ -52,8 +57,10 @@ expression: "str::from_utf8(&output.stdout)?"
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "point",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "l",
@@ -68,8 +75,10 @@ expression: "str::from_utf8(&output.stdout)?"
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "line",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "l",
@@ -84,8 +93,10 @@ expression: "str::from_utf8(&output.stdout)?"
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "line",
-      "flags": {}
+      "flags": {},
+      "mask": null
     }
   ],
   "imagePath": "img1.jpg",

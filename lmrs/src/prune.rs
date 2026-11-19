@@ -69,23 +69,20 @@ mod tests {
                 Shape {
                     label: "inside".into(),
                     points: vec![(10.0, 10.0), (50.0, 50.0)], // Both inside
-                    group_id: None,
                     shape_type: "point".into(),
-                    flags: labelme_rs::Flags::new(),
+                    ..Default::default()
                 },
                 Shape {
                     label: "mixed".into(),
                     points: vec![(10.0, 10.0), (50.0, 50.0), (150.0, 150.0)], // Two inside, one outside
-                    group_id: None,
                     shape_type: "polygon".into(),
-                    flags: labelme_rs::Flags::new(),
+                    ..Default::default()
                 },
                 Shape {
                     label: "outside".into(),
                     points: vec![(-10.0, -10.0), (150.0, 150.0)], // Both outside
-                    group_id: None,
                     shape_type: "point".into(),
-                    flags: labelme_rs::Flags::new(),
+                    ..Default::default()
                 },
             ],
             imagePath: "test.jpg".into(),
@@ -118,9 +115,8 @@ mod tests {
             .map(|&(x, y)| Shape {
                 label: "boundary".into(),
                 points: vec![(x, y)],
-                group_id: None,
                 shape_type: "point".into(),
-                flags: labelme_rs::Flags::new(),
+                ..Default::default()
             })
             .collect::<Vec<_>>();
         let data = LabelMeData {

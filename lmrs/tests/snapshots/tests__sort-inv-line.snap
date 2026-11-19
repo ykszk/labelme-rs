@@ -1,7 +1,6 @@
 ---
 source: lmrs/tests/tests.rs
 expression: "str::from_utf8(&output.stdout)?"
-snapshot_kind: text
 ---
 {
   "version": "5.0.1",
@@ -16,8 +15,10 @@ snapshot_kind: text
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "point",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "l",
@@ -28,8 +29,10 @@ snapshot_kind: text
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "point",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "m",
@@ -40,8 +43,10 @@ snapshot_kind: text
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "point",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "m",
@@ -52,8 +57,10 @@ snapshot_kind: text
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "point",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "l",
@@ -68,8 +75,10 @@ snapshot_kind: text
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "line",
-      "flags": {}
+      "flags": {},
+      "mask": null
     },
     {
       "label": "l",
@@ -84,8 +93,10 @@ snapshot_kind: text
         ]
       ],
       "group_id": null,
+      "description": "",
       "shape_type": "line",
-      "flags": {}
+      "flags": {},
+      "mask": null
     }
   ],
   "imagePath": "img1.jpg",
