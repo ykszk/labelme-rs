@@ -8,7 +8,7 @@ description: Inspect, validate, filter and transform labelme annotation JSON fil
 `lmrs` is a CLI for labelme json files (https://github.com/ykszk/labelme-rs).
 Run `lmrs <COMMAND> --help` for exact arguments before using a command for the first time in a session; options change between versions.
 
-This skill was written for lmrs 0.14.4. Run `lmrs --version` once per session; if it is older, mention it to the user and rely on `--help` where they differ.
+This skill was written for lmrs 0.15.0. Run `lmrs --version` once per session; if it is older, mention it to the user and rely on `--help` where they differ.
 
 If `lmrs` is not installed, tell the user and point them to the Releases page or `cargo install --git https://github.com/ykszk/labelme-rs`.
 
@@ -46,8 +46,8 @@ Filter and edit:
 - `merge A B`: merge shapes of annotations with the same filename
 
 Geometry and paths:
-- `resize - 50%`: scale points (imagemagick-like size; `--image DIR` also writes resized images)
-- `mat --scale SX SY` / `--translate TX TY` / `--rotate DEG` / `--matrix ...` (`--ndjson` for ndjson input)
+- `resize - 50%`: scale points and masks (imagemagick-like size; `--image DIR` also writes resized images)
+- `mat --scale SX SY` / `--translate TX TY` / `--rotate DEG` / `--matrix ...` (`--ndjson` for ndjson input; files with `mask` shapes allow only translation and positive scaling)
 - `swap --prefix DIR` / `swap --suffix .png`: rewrite `imagePath`
 
 Create and output:
