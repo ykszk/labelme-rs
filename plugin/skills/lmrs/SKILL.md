@@ -8,7 +8,7 @@ description: Inspect, validate, filter and transform labelme annotation JSON fil
 `lmrs` is a CLI for labelme json files (https://github.com/ykszk/labelme-rs).
 Run `lmrs <COMMAND> --help` for exact arguments before using a command for the first time in a session; options change between versions.
 
-This skill was written for lmrs 0.15.0. Run `lmrs --version` once per session; if it is older, mention it to the user and rely on `--help` where they differ.
+This skill was written for lmrs 0.15.1. Run `lmrs --version` once per session; if it is older, mention it to the user and rely on `--help` where they differ.
 
 If `lmrs` is not installed, tell the user and point them to the Releases page or `cargo install --git https://github.com/ykszk/labelme-rs`.
 
