@@ -59,6 +59,12 @@ Use `split` command to undo.
 lmrs ndjson JSON_DIRECTORY > jsons.ndjson
 ```
 
+Resolve relative paths in a field (e.g. `../image/a.jpg`) to normalized absolute paths (e.g. `/path/image/a.jpg`).
+Paths are resolved relative to each json file.
+```bash
+lmrs ndjson JSON_DIRECTORY --normalize .content.imagePath > jsons.ndjson
+```
+
 ## split
 Undo `lmrs ndjson`.
 i.e. split ndjson file into separate json files using `filename` values as filenames.

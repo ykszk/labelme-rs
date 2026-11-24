@@ -17,7 +17,7 @@ If `lmrs` is not installed, tell the user and point them to the Releases page or
 Most commands read ndjson from stdin (`-`, usually the default) and write ndjson to stdout.
 Each line is `{"content": <labelme json>, "filename": "<json path>"}`.
 
-1. `lmrs ndjson DIR` turns a directory of json files into ndjson (`-g '**/*.json'` for recursive search)
+1. `lmrs ndjson DIR` turns a directory of json files into ndjson (`-g '**/*.json'` for recursive search). Add `--normalize .content.imagePath` to make `imagePath` an absolute path, so the ndjson stays valid wherever it is used
 2. Pipe it through lmrs commands, or through `jq -c` for custom filtering
 3. `lmrs split -o OUTDIR` writes the result back to separate json files
 

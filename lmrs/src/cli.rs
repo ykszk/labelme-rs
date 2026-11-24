@@ -341,6 +341,12 @@ pub struct NdjsonCmdArgs {
     /// Do not ignore entries starting with `.`
     #[clap(short, long)]
     pub all: bool,
+    /// Resolve the relative path in the given field (e.g. `.content.imagePath`) to a normalized absolute path.
+    /// Paths are resolved relative to the directory of the json file.
+    /// For ndjson input, the json file is given by the filename key (relative to the ndjson file), or is the ndjson file itself if the key is missing.
+    /// Can be specified multiple times
+    #[clap(short, long, value_name = "FIELD", value_hint = ValueHint::Other)]
+    pub normalize: Vec<String>,
 }
 
 #[derive(Debug, Args)]
